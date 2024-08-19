@@ -213,7 +213,7 @@ custom_response = client.rest.custom_endpoint_method(param1="value1", param2="va
 
 ## Rest endpoints (exposed under `rest` method)
 
-All URIs are relative to *https://app.infisical.com*
+All URIs are relative to `host` parameter of InfisicalSDKClient.
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
