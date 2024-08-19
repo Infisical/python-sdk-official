@@ -9,7 +9,7 @@ Python 3.7+
 ## Installation
 
 ```bash
-pip install infisicalsdk 
+pip install infisical_sdk
 ```
 
 ## Getting Started
