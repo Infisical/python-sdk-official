@@ -1,6 +1,6 @@
 # Infisical SDK
 
-The Infisical SDK provides a convenient way to interact with the Infisical API for managing secrets and authentication. 
+The Infisical SDK provides a convenient way to interact with the Infisical API. 
 
 ## Requirements
 
