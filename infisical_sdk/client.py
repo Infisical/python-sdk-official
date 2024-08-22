@@ -82,7 +82,7 @@ class AWSAuth:
     def __init__(self, client: InfisicalSDKClient) -> None:
         self.client = client
 
-    def login(self, identity_id: str = "") -> ApiV1AuthTokenAuthIdentitiesIdentityIdTokensPost200Response:
+    def login(self, identity_id: str) -> ApiV1AuthTokenAuthIdentitiesIdentityIdTokensPost200Response:
         """
         Login with AWS Authentication. 
 
@@ -102,7 +102,7 @@ class AWSAuth:
 
         credentials = self._get_aws_credentials(session)
 
-        iam_request_url = "https://sts.amazonaws.com/"
+        iam_request_url = f"https://sts.{aws_region}.amazonaws.com/"
         iam_request_body = "Action=GetCallerIdentity&Version=2011-06-15"
         request_headers = self._prepare_aws_request(iam_request_url, iam_request_body, credentials, aws_region)
 
@@ -133,7 +133,7 @@ class AWSAuth:
         
         request = AWSRequest(method="POST", url=url, data=body)
         request.headers["X-Amz-Date"] = amz_date
-        request.headers["Host"] = "sts.amazonaws.com"
+        request.headers["Host"] = f"sts.{region}.amazonaws.com"
         request.headers["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
         request.headers["Content-Length"] = str(len(body))
 
@@ -177,8 +177,8 @@ class AWSAuth:
 class Auth:
     def __init__(self, client):
         self.client = client
-        self.awsAuth = AWSAuth(client)
-        self.universalAuth = UniversalAuth(client)
+        self.aws_auth = AWSAuth(client)
+        self.universal_auth = UniversalAuth(client)
 
 class V3RawSecrets:
     def __init__(self, client: InfisicalSDKClient) -> None:
