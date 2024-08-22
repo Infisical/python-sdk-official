@@ -21,7 +21,7 @@ from infisical_sdk import InfisicalSDKClient
 client = InfisicalSDKClient(host="https://app.infisical.com")
 
 # Authenticate (example using Universal Auth)
-client.auth.universalAuth.login(client_id="your_client_id", client_secret="your_client_secret")
+client.auth.universal_auth.login(client_id="your_client_id", client_secret="your_client_secret")
 
 # Use the SDK to interact with Infisical
 secrets = client.secrets.listSecrets(project_id="your_project_id", environment_slug="dev", secret_path="/")
@@ -35,7 +35,7 @@ from infisical_sdk import InfisicalSDKClient
 
 client1 = InfisicalSDKClient(host="https://app.infisical.com")
 
-client1.auth.awsAuth.login(identity_id="992cd584-aebf-4849-b303-d90726d1b790")
+client1.auth.aws_auth.login(identity_id="992cd584-aebf-4849-b303-d90726d1b790")
 
 client1.rest.api_v1_folders_get(workspace_id="639926527b2d39eaf761b468", environment="dev", path="/")
 ```
@@ -55,13 +55,13 @@ The `Auth` component provides methods for authentication:
 #### Universal Auth
 
 ```python
-response = client.auth.universalAuth.login(client_id="your_client_id", client_secret="your_client_secret")
+response = client.auth.universal_auth.login(client_id="your_client_id", client_secret="your_client_secret")
 ```
 
 #### AWS Auth
 
 ```python
-response = client.auth.awsAuth.login(identity_id="your_identity_id")
+response = client.auth.aws_auth.login(identity_id="your_identity_id")
 ```
 
 ### `secrets`
