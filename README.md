@@ -213,7 +213,7 @@ custom_response = client.rest.custom_endpoint_method(param1="value1", param2="va
 
 ## Rest endpoints (exposed under `rest` method)
 
-All URIs are relative to `host` parameter of InfisicalSDKClient.
+All URIs are relative to `host` parameter of InfisicalSDKClient. Officially exposed API endpoints for public use are listed here https://infisical.com/docs/api-reference/overview/introduction. API endpoints not officially exposed are subject to change at anytime.
 
 Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
