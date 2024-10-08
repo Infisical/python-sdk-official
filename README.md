@@ -24,7 +24,7 @@ client = InfisicalSDKClient(host="https://app.infisical.com")
 client.auth.universal_auth.login(client_id="your_client_id", client_secret="your_client_secret")
 
 # Use the SDK to interact with Infisical
-secrets = client.secrets.listSecrets(project_id="your_project_id", environment_slug="dev", secret_path="/")
+secrets = client.secrets.list_secrets(project_id="your_project_id", environment_slug="dev", secret_path="/")
 ```
 
 ### Accessing REST Endpoints
