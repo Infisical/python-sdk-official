@@ -125,3 +125,55 @@ class MachineIdentityLoginResponse(BaseModel):
     expiresIn: int
     accessTokenMaxTTL: int
     tokenType: str
+
+
+@dataclass
+class BaseKey(BaseModel):
+    createdAt: str
+    id: str
+    name: str
+    orgId: str
+    updatedAt: str
+    description: Optional[str] = None
+    isDisabled: Optional[bool] = field(default=False)
+    isReserved: Optional[bool] = field(default=True)
+    projectId: Optional[str] = None
+    slug: Optional[str] = None
+
+
+@dataclass
+class ListKey(BaseKey):
+    encryptionAlgorithm: str = "aes-256-gcm"
+    version: int = 1
+
+@dataclass
+class ListKeysResponse(BaseModel):
+    keys: List[ListKey]
+    totalCount: int
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ListKeysResponse':
+        return cls(
+            keys=[ListKey.from_dict(key) for key in data['keys']],
+            totalCount=data['totalCount']
+        )
+
+
+@dataclass
+class SingleKeyResponse(BaseModel):
+    key: BaseKey
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SingleKeyResponse':
+        return cls(
+            key=BaseKey.from_dict(data['key'])
+        )
+
+@dataclass
+class EncryptDataResponse(BaseModel):
+    ciphertext: str
+
+
+@dataclass
+class DecryptDataResponse(BaseModel):
+    plaintext: str
