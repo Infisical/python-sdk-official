@@ -14,6 +14,7 @@ class InfisicalSDKClient:
         :param str host: The host URL for your Infisical instance. Will default to `https://app.infisical.com` if not specified.
         :param str token: The authentication token for the client. If not specified, you can use the `auth` methods to authenticate.
         :param int cache_ttl: The time to live for the secrets cache. This is the number of seconds that secrets fetched from the API will be cached for. Set to `None` to disable caching. Defaults to `60` seconds.
+        :param bool verifySSL: Whether to verify SSL certificates. Set to `False` to disable verification for self-signed certificates. Defaults to `True`.
         """
         
         self.host = host

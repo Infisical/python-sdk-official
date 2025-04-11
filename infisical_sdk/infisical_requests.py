@@ -51,6 +51,16 @@ class APIResponse(Generic[T]):
 
 
 class InfisicalRequests:
+    """
+    Initialize the Infisical requests client.
+    
+    :param str host: The host URL for your Infisical instance.
+    :param str token: Optional authentication token for the client.
+    :param bool verifySSL: Whether to verify SSL certificates. Set to `False` to disable 
+                            verification for self-signed certificates. Warning: Disabling 
+                            SSL verification may expose you to man-in-the-middle attacks.
+                            Only use in development or with trusted networks. Defaults to `True`.
+    """
     def __init__(self, host: str, token: Optional[str] = None, verifySSL: bool = True):
         self.host = host.rstrip("/")
         self.session = requests.Session()
@@ -175,7 +185,7 @@ class InfisicalRequests:
             json: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
-        """Make a PATCH request with JSON data"""
+        """Make a DELETE request with JSON data"""
 
         if json is not None:
             # Filter out None values
