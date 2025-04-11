@@ -51,9 +51,10 @@ class APIResponse(Generic[T]):
 
 
 class InfisicalRequests:
-    def __init__(self, host: str, token: Optional[str] = None):
+    def __init__(self, host: str, token: Optional[str] = None, verifySSL: bool = True):
         self.host = host.rstrip("/")
         self.session = requests.Session()
+        self.verifySSL = verifySSL
 
         # Set common headers
         self.session.headers.update({
@@ -108,7 +109,7 @@ class InfisicalRequests:
             model: model class to parse response into
             params: Optional query parameters
         """
-        response = self.session.get(self._build_url(path), params=params)
+        response = self.session.get(self._build_url(path), params=params, verify=self.verifySSL)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
@@ -132,7 +133,7 @@ class InfisicalRequests:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.post(self._build_url(path), json=json)
+        response = self.session.post(self._build_url(path), json=json, verify=self.verifySSL)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
@@ -156,7 +157,7 @@ class InfisicalRequests:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.patch(self._build_url(path), json=json)
+        response = self.session.patch(self._build_url(path), json=json, verify=self.verifySSL)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
@@ -180,7 +181,7 @@ class InfisicalRequests:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.delete(self._build_url(path), json=json)
+        response = self.session.delete(self._build_url(path), json=json, verify=self.verifySSL)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data

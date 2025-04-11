@@ -51,6 +51,7 @@ The `InfisicalSDKClient` takes the following parameters, which are used as a glo
 
 - **host** (`str`, _Optional_): The host URL for your Infisical instance. Defaults to `https://app.infisical.com`.
 - **token** (`str`, _Optional_): Specify an authentication token to use for all requests. If provided, you will not need to call any of the `auth` methods. Defaults to `None`
+- **verifySSL** (`bool`, _Optional_): Whether to run the security certificate check for SSL/TLS connections. Defaults to `True`
 - **cache_ttl** (`int`, _Optional_): The SDK has built-in client-side caching for secrets, greatly improving response times. By default, secrets are cached for 1 minute (60 seconds). You can disable caching by setting `cache_ttl` to `None`, or adjust the duration in seconds as needed.
 
 ```python

@@ -7,7 +7,7 @@ from infisical_sdk.resources import KMS
 from infisical_sdk.util import SecretsCache
 
 class InfisicalSDKClient:
-    def __init__(self, host: str, token: str = None, cache_ttl: int = 60):
+    def __init__(self, host: str, token: str = None, cache_ttl: int = 60, verifySSL: bool = True):
         """
         Initialize the Infisical SDK client.
 
@@ -18,8 +18,9 @@ class InfisicalSDKClient:
         
         self.host = host
         self.access_token = token
+        self.verifySSL = verifySSL
 
-        self.api = InfisicalRequests(host=host, token=token)
+        self.api = InfisicalRequests(host=host, token=token, verifySSL=verifySSL)
         self.cache = SecretsCache(cache_ttl)
         self.auth = Auth(self.api, self.set_token)
         self.secrets = V3RawSecrets(self.api, self.cache)
