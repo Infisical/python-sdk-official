@@ -1,7 +1,19 @@
-from infisical_sdk.api_types import SymmetricEncryption, KmsKeysOrderBy, OrderDirection
-from infisical_sdk.api_types import ListKmsKeysResponse, SingleKmsKeyResponse
-from infisical_sdk.api_types import KmsKey, KmsKeyEncryptDataResponse, KmsKeyDecryptDataResponse
+from typing import Union
 
+from infisical_sdk.api_types import (
+    ECDSASigningAlgorithm,
+    KmsKey,
+    KmsKeyDecryptDataResponse,
+    KmsKeyEncryptDataResponse,
+    KmsKeySignDataResponse,
+    KmsKeysOrderBy,
+    KmsKeyVerifyDataResponse,
+    ListKmsKeysResponse,
+    OrderDirection,
+    RSASigningAlgorithm,
+    SingleKmsKeyResponse,
+    SymmetricEncryption,
+)
 from infisical_sdk.infisical_requests import InfisicalRequests
 
 
@@ -175,3 +187,71 @@ class KMS:
         )
 
         return result.data.plaintext
+
+    def sign_data(
+        self,
+        key_id: str,
+        base64EncodedPlaintext: str,
+        signingAlgorithm: Union[ECDSASigningAlgorithm | RSASigningAlgorithm],
+    ) -> str:
+        """
+        Sign the provided base64-encoded plaintext using the specified KMS key and signing algorithm.
+
+        :param key_id: The ID of the key used for signing.
+        :type key_id: str
+        :param base64EncodedPlaintext: The base64-encoded plaintext to sign.
+        :type base64EncodedPlaintext: str
+        :param signingAlgorithm: The signing algorithm to use (RSA or ECDSA variants).
+        :type signingAlgorithm: ECDSASigningAlgorithm | RSASigningAlgorithm
+
+        :return: The base64-encoded signature.
+        :rtype: str
+        """
+        request_body = {
+            "data": base64EncodedPlaintext,
+            "signingAlgorithm": signingAlgorithm.value,
+        }
+
+        result = self.requests.post(
+            path=f"/api/v1/kms/keys/{key_id}/sign",
+            json=request_body,
+            model=KmsKeySignDataResponse,
+        )
+
+        return result.data.signature
+
+    def verify_data(
+        self,
+        key_id: str,
+        base64EncodedPlaintext: str,
+        signingAlgorithm: Union[ECDSASigningAlgorithm | RSASigningAlgorithm],
+        signature: str,
+    ) -> bool:
+        """
+        Verify a signature for the given base64-encoded plaintext using the specified KMS key and signing algorithm.
+
+        :param key_id: The ID of the key used to verify the signature.
+        :type key_id: str
+        :param base64EncodedPlaintext: The base64-encoded plaintext whose signature is being verified.
+        :type base64EncodedPlaintext: str
+        :param signingAlgorithm: The algorithm used to generate the signature.
+        :type signingAlgorithm: ECDSASigningAlgorithm | RSASigningAlgorithm
+        :param signature: The base64-encoded signature to verify.
+        :type signature: str
+
+        :return: True if the signature is valid, False otherwise.
+        :rtype: bool
+        """
+        request_body = {
+            "data": base64EncodedPlaintext,
+            "signingAlgorithm": signingAlgorithm.value,
+            "signature": signature,
+        }
+
+        result = self.requests.post(
+            path=f"/api/v1/kms/keys/{key_id}/verify",
+            json=request_body,
+            model=KmsKeyVerifyDataResponse,
+        )
+
+        return result.data.signatureValid
