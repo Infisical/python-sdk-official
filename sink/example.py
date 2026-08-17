@@ -112,6 +112,59 @@ deleted_secret = sdkInstance.secrets.delete_secret_by_name(
 
 print(f"Deleted secret: [key={deleted_secret.secretKey}] | [value={deleted_secret.secretValue}]")
 
+################################################# FOLDER TESTS #################################################
+
+new_folder = sdkInstance.folders.create_folder(
+    name=f"test-folder-{random_string()}",
+    project_id=SECRETS_PROJECT_ID,
+    environment_slug=SECRETS_ENVIRONMENT_SLUG,
+    path="/",
+    description=f"Optional description_{random_string()}"  # Optional
+)
+
+print(f"Created folder: [id={new_folder.id}] | [name={new_folder.name}]")
+
+new_folder_name = f"renamed-folder-{random_string()}"
+
+updated_folder = sdkInstance.folders.update_folder(
+    folder_id=new_folder.id,
+    name=new_folder_name,
+    project_id=SECRETS_PROJECT_ID,
+    environment_slug=SECRETS_ENVIRONMENT_SLUG,
+    path="/",
+    description=f"Updated description_{random_string()}"  # Optional
+)
+
+if updated_folder.name != new_folder_name:
+    raise Exception("Expected folder name {}, got {}".format(new_folder_name, updated_folder.name))
+
+print(f"Updated folder: [id={updated_folder.id}] | [name={updated_folder.name}]")
+
+folder = sdkInstance.folders.get_folder_by_id(
+    id=updated_folder.id
+)
+
+print(f"Retrieved folder: [id={folder.id}] | [name={folder.name}] | [path={folder.path}]")
+
+all_folders = sdkInstance.folders.list_folders(
+    project_id=SECRETS_PROJECT_ID,
+    environment_slug=SECRETS_ENVIRONMENT_SLUG,
+    path="/"
+)
+
+for idx, listed_folder in enumerate(all_folders.folders):
+    print(f"Listed folders name {idx}: [{listed_folder.name}] | [id={listed_folder.id}]")
+
+deleted_folder = sdkInstance.folders.delete_folder(
+    folder_id_or_name=updated_folder.id,
+    project_id=SECRETS_PROJECT_ID,
+    environment_slug=SECRETS_ENVIRONMENT_SLUG,
+    path="/",
+    force_delete=True
+)
+
+print(f"Deleted folder: [id={deleted_folder.id}] | [name={deleted_folder.name}]")
+
 ################################################# KMS TESTS #################################################
 
 kms_key = sdkInstance.kms.create_key(

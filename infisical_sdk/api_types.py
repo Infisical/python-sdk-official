@@ -223,6 +223,59 @@ class CreateFolderResponse(BaseModel):
 
 
 @dataclass
+class UpdateFolderResponseItem(BaseModel):
+    """Folder model with path for update response"""
+    id: str
+    name: str
+    createdAt: str
+    updatedAt: str
+    envId: str
+    path: str
+    version: Optional[int] = 1
+    parentId: Optional[str] = None
+    isReserved: Optional[bool] = False
+    description: Optional[str] = None
+    lastSecretModified: Optional[str] = None
+
+@dataclass
+class UpdateFolderResponse(BaseModel):
+    """Response model for update folder API"""
+    folder: UpdateFolderResponseItem
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'UpdateFolderResponse':
+        return cls(
+            folder=UpdateFolderResponseItem.from_dict(data['folder']),
+        )
+
+
+@dataclass
+class DeleteFolderResponseItem(BaseModel):
+    """Folder model for delete response, which does not return a path"""
+    id: str
+    name: str
+    createdAt: str
+    updatedAt: str
+    envId: str
+    version: Optional[int] = 1
+    parentId: Optional[str] = None
+    isReserved: Optional[bool] = False
+    description: Optional[str] = None
+    lastSecretModified: Optional[str] = None
+
+@dataclass
+class DeleteFolderResponse(BaseModel):
+    """Response model for delete folder API"""
+    folder: DeleteFolderResponseItem
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'DeleteFolderResponse':
+        return cls(
+            folder=DeleteFolderResponseItem.from_dict(data['folder']),
+        )
+
+
+@dataclass
 class ListFoldersResponseItem(BaseModel):
     """Response model for list folders API"""
     id: str

@@ -2,7 +2,17 @@ from typing import Optional
 from datetime import datetime, timezone
 
 from infisical_sdk.infisical_requests import InfisicalRequests
-from infisical_sdk.api_types import ListFoldersResponse, SingleFolderResponse, SingleFolderResponseItem, CreateFolderResponse, CreateFolderResponseItem
+from infisical_sdk.api_types import (
+    ListFoldersResponse,
+    SingleFolderResponse,
+    SingleFolderResponseItem,
+    CreateFolderResponse,
+    CreateFolderResponseItem,
+    UpdateFolderResponse,
+    UpdateFolderResponseItem,
+    DeleteFolderResponse,
+    DeleteFolderResponseItem,
+)
 
 
 class V2Folders:
@@ -69,6 +79,54 @@ class V2Folders:
         result = self.requests.get(
             path=f"/api/v2/folders/{id}",
             model=SingleFolderResponse
+        )
+
+        return result.data.folder
+
+    def update_folder(
+            self,
+            folder_id: str,
+            name: str,
+            environment_slug: str,
+            project_id: str,
+            path: str = "/",
+            description: Optional[str] = None) -> UpdateFolderResponseItem:
+
+        request_body = {
+            "projectId": project_id,
+            "environment": environment_slug,
+            "name": name,
+            "path": path,
+            "description": description,
+        }
+
+        result = self.requests.patch(
+            path=f"/api/v2/folders/{folder_id}",
+            json=request_body,
+            model=UpdateFolderResponse
+        )
+
+        return result.data.folder
+
+    def delete_folder(
+            self,
+            folder_id_or_name: str,
+            environment_slug: str,
+            project_id: str,
+            path: str = "/",
+            force_delete: bool = False) -> DeleteFolderResponseItem:
+
+        request_body = {
+            "projectId": project_id,
+            "environment": environment_slug,
+            "path": path,
+            "forceDelete": force_delete,
+        }
+
+        result = self.requests.delete(
+            path=f"/api/v2/folders/{folder_id_or_name}",
+            json=request_body,
+            model=DeleteFolderResponse
         )
 
         return result.data.folder
