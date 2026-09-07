@@ -34,8 +34,9 @@ def test_client_timeout_reaches_the_request():
 
 def send_attempts(api, method, error):
     with mock.patch.object(api.session, method, side_effect=error) as send:
-        with pytest.raises(type(error)):
-            getattr(api, method)("/path", dict)
+        with mock.patch("infisical_sdk.infisical_requests.time.sleep"):
+            with pytest.raises(type(error)):
+                getattr(api, method)("/path", dict)
     return send.call_count
 
 
