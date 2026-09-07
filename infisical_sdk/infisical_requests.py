@@ -22,6 +22,13 @@ NETWORK_ERRORS = [
     ConnectionAbortedError,
 ]
 
+# A read timeout means the request reached the server and the response did not
+# arrive in time, so the server may already have applied it. Replaying that is
+# only safe for reads.
+IDEMPOTENT_NETWORK_ERRORS = [
+    error for error in NETWORK_ERRORS if error is not requests.exceptions.ReadTimeout
+]
+
 def join_url(base: str, path: str) -> str:
     """
     Join base URL and path properly, handling slashes appropriately.
@@ -175,7 +182,9 @@ class InfisicalRequests:
             headers=dict(response.headers)
         )
 
-    @with_retry(max_retries=4, base_delay=1.0)
+    @with_retry(
+        max_retries=4, base_delay=1.0, network_errors=IDEMPOTENT_NETWORK_ERRORS
+    )
     def post(
             self,
             path: str,
@@ -200,7 +209,9 @@ class InfisicalRequests:
             headers=dict(response.headers)
         )
 
-    @with_retry(max_retries=4, base_delay=1.0)
+    @with_retry(
+        max_retries=4, base_delay=1.0, network_errors=IDEMPOTENT_NETWORK_ERRORS
+    )
     def patch(
             self,
             path: str,
@@ -225,7 +236,9 @@ class InfisicalRequests:
             headers=dict(response.headers)
         )
 
-    @with_retry(max_retries=4, base_delay=1.0)
+    @with_retry(
+        max_retries=4, base_delay=1.0, network_errors=IDEMPOTENT_NETWORK_ERRORS
+    )
     def delete(
             self,
             path: str,
