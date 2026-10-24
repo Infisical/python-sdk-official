@@ -36,7 +36,13 @@ class BaseModel:
         """Create model from dictionary"""
         # Get only the fields that exist in the dataclass
         valid_fields = {f.name for f in fields(cls)}
-        filtered_data = {k: v for k, v in data.items() if k in valid_fields}
+        # Handle snake_case to camelCase conversion if needed
+        renamed = data.copy()
+        if 'created_at' in renamed:
+            renamed['createdAt'] = renamed.pop('created_at')
+        if 'updated_at' in renamed:
+            renamed['updatedAt'] = renamed.pop('updated_at')
+        filtered_data = {k: v for k, v in renamed.items() if k in valid_fields}
         return cls(**filtered_data)
 
     def to_json(self) -> str:
@@ -71,8 +77,8 @@ class BaseSecret(BaseModel):
     secretKey: str
     secretValue: str
     secretComment: str
-    createdAt: str
-    updatedAt: str
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
     secretMetadata: Optional[Dict[str, Any]] = None
     secretValueHidden: Optional[bool] = False
     secretReminderNote: Optional[str] = None
@@ -150,8 +156,8 @@ class KmsKey(BaseModel):
     isDisabled: bool
     orgId: str
     name: str
-    createdAt: str
-    updatedAt: str
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
     projectId: str
     version: int
     encryptionAlgorithm: SymmetricEncryption
