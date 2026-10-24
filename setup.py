@@ -33,6 +33,8 @@ setup(
     author="Infisical",
     author_email="support@infisical.com",
     url="https://github.com/Infisical/python-sdk-official",
+    license="MIT",
+    classifiers=["License :: OSI Approved :: MIT License"],
     keywords=["Infisical", "Infisical API", "Infisical SDK", "SDK", "Secrets Management"],
     install_requires=REQUIRES,
     packages=find_packages(exclude=["test", "tests"]),
