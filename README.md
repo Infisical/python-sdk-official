@@ -31,6 +31,22 @@ If you’re working with Python, the official Infisical Python SDK package is th
 ## Documentation
 You can find the documentation for the Python SDK on our [SDK documentation page](https://infisical.com/docs/sdks/languages/python).
 
+## Self-hosted instances with a private CA
+
+The SDK uses `requests`, which verifies TLS certificates against the Mozilla CA bundle from the `certifi` package. It does not read your operating system trust store.
+
+If your self-hosted Infisical instance uses a certificate from a private or corporate CA, set `REQUESTS_CA_BUNDLE` to a CA bundle file that contains that CA:
+
+```bash
+# Debian / Ubuntu
+export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+# Fedora / RHEL
+export REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
+```
+
+These paths are the operating system bundles, so the CA must be added there first (for example with `update-ca-certificates` or `update-ca-trust`). You can also point `REQUESTS_CA_BUNDLE` to a PEM file that holds only your CA.
+
 ## JWT authentication
 
 For a Machine Identity configured with JWT Auth, use `jwt_auth` (OIDC Auth is a separate method):

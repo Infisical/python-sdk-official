@@ -23,6 +23,7 @@ REQUIRES = [
     "requests~=2.32",
     "boto3~=1.35",
     "botocore~=1.35",
+    "certifi>=2026.10.19",
 ]
 
 setup(
