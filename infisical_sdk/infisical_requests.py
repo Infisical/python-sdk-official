@@ -204,14 +204,15 @@ class InfisicalRequests:
             self,
             path: str,
             model: Type[T],
-            json: Optional[Dict[str, Any]] = None
+            json: Optional[Dict[str, Any]] = None,
+            nullable_keys: Optional[List[str]] = None
           ) -> APIResponse[T]:
 
-        """Make a PATCH request with JSON data"""
+        """Make a PATCH request with JSON data. Keys in nullable_keys are sent even when None, to clear a value."""
 
         if json is not None:
             # Filter out None values
-            json = {k: v for k, v in json.items() if v is not None}
+            json = {k: v for k, v in json.items() if v is not None or k in (nullable_keys or [])}
 
         response = self.session.patch(self._build_url(path), json=json)
         data = self._handle_response(response)

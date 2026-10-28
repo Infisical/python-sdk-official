@@ -448,3 +448,167 @@ class SingleLeaseResponse(BaseModel):
         return cls(
             lease=DynamicSecretLease.from_dict(data['lease']),
         )
+
+class AgentVaultTrafficPolicy(str, Enum):
+    """Enum for which hosts an agent may reach through an Agent Vault proxy"""
+    ANY_HOST = "any-host"
+    BUNDLE_HOSTS = "bundle-hosts"
+
+class AgentVaultSessionStatus(str, Enum):
+    """Enum for Agent Vault session status"""
+    ACTIVE = "active"
+    REVOKED = "revoked"
+    EXPIRED = "expired"
+
+class AgentVaultSessionScope(str, Enum):
+    """Enum for whose Agent Vault sessions to list"""
+    MINE = "mine"
+    ALL = "all"
+
+@dataclass
+class AgentVaultProxy(BaseModel):
+    """Infisical Agent Vault Proxy. Only admins see the settings fields, so they are None for members."""
+    id: str
+    name: str
+    heartbeat: Optional[str] = None
+    isHealthy: Optional[bool] = None
+    rootCaFingerprint: Optional[str] = None
+    rootCaExpiresAt: Optional[str] = None
+    trafficPolicy: Optional[str] = None
+    allowedHosts: Optional[str] = None
+    pollInterval: Optional[int] = None
+    createdAt: Optional[str] = None
+
+@dataclass
+class SingleAgentVaultProxyResponse(BaseModel):
+    """Response model for update/delete/revoke Agent Vault proxy API"""
+    proxy: AgentVaultProxy
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SingleAgentVaultProxyResponse':
+        return cls(
+            proxy=AgentVaultProxy.from_dict(data['proxy']),
+        )
+
+@dataclass
+class AgentVaultProxyWithTokenResponse(BaseModel):
+    """Response model for create Agent Vault proxy and rotate proxy token API. The token is only returned once."""
+    proxy: AgentVaultProxy
+    proxyToken: str
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'AgentVaultProxyWithTokenResponse':
+        return cls(
+            proxy=AgentVaultProxy.from_dict(data['proxy']),
+            proxyToken=data['proxyToken'],
+        )
+
+@dataclass
+class ListAgentVaultProxiesResponse(BaseModel):
+    """Response model for list Agent Vault proxies API"""
+    proxies: List[AgentVaultProxy]
+    totalCount: int
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ListAgentVaultProxiesResponse':
+        return cls(
+            proxies=[AgentVaultProxy.from_dict(proxy) for proxy in data['proxies']],
+            totalCount=data['totalCount'],
+        )
+
+@dataclass
+class AgentVaultSessionActor(BaseModel):
+    """The user or machine identity an Agent Vault session belongs to"""
+    type: str
+    id: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    name: Optional[str] = None
+
+@dataclass
+class AgentVaultSessionAccessBundle(BaseModel):
+    """An access bundle carried by an Agent Vault session"""
+    name: str
+    position: int
+    id: Optional[str] = None
+
+@dataclass
+class AgentVaultSession(BaseModel):
+    """Infisical Agent Vault Session"""
+    id: str
+    status: str
+    createdAt: str
+    label: Optional[str] = None
+    actor: Optional[AgentVaultSessionActor] = None
+    expiresAt: Optional[str] = None
+    revokedAt: Optional[str] = None
+    accessBundles: List[AgentVaultSessionAccessBundle] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'AgentVaultSession':
+        """Create model from dictionary with nested actor and access bundles"""
+        session_data = data.copy()
+        if data.get('actor') is not None:
+            session_data['actor'] = AgentVaultSessionActor.from_dict(data['actor'])
+        session_data['accessBundles'] = [
+            AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data.get('accessBundles', [])
+        ]
+
+        return super().from_dict(session_data)
+
+@dataclass
+class CreatedAgentVaultSession(BaseModel):
+    """Infisical Agent Vault Session as returned at creation. The token is only returned once."""
+    id: str
+    token: str
+    createdAt: str
+    label: Optional[str] = None
+    expiresAt: Optional[str] = None
+    accessBundles: List[AgentVaultSessionAccessBundle] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'CreatedAgentVaultSession':
+        """Create model from dictionary with nested access bundles"""
+        session_data = data.copy()
+        session_data['accessBundles'] = [
+            AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data.get('accessBundles', [])
+        ]
+
+        return super().from_dict(session_data)
+
+@dataclass
+class SingleAgentVaultSessionResponse(BaseModel):
+    """Response model for get/revoke Agent Vault session API"""
+    session: AgentVaultSession
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SingleAgentVaultSessionResponse':
+        return cls(
+            session=AgentVaultSession.from_dict(data['session']),
+        )
+
+@dataclass
+class CreateAgentVaultSessionResponse(BaseModel):
+    """Response model for create Agent Vault session API"""
+    session: CreatedAgentVaultSession
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'CreateAgentVaultSessionResponse':
+        return cls(
+            session=CreatedAgentVaultSession.from_dict(data['session']),
+        )
+
+@dataclass
+class ListAgentVaultSessionsResponse(BaseModel):
+    """Response model for list Agent Vault sessions API"""
+    sessions: List[AgentVaultSession]
+    totalCount: int
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ListAgentVaultSessionsResponse':
+        return cls(
+            sessions=[AgentVaultSession.from_dict(session) for session in data['sessions']],
+            totalCount=data['totalCount'],
+        )
