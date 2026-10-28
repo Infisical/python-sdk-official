@@ -22,6 +22,11 @@ NETWORK_ERRORS = [
     ConnectionAbortedError,
 ]
 
+# Raised before a request reaches the server, so retrying can't make the server handle it twice
+CONNECT_ERRORS = [
+    requests.exceptions.ConnectTimeout,
+]
+
 def join_url(base: str, path: str) -> str:
     """
     Join base URL and path properly, handling slashes appropriately.
@@ -183,6 +188,32 @@ class InfisicalRequests:
           ) -> APIResponse[T]:
 
         """Make a POST request with JSON data"""
+
+        if json is not None:
+            # Filter out None values
+            json = {k: v for k, v in json.items() if v is not None}
+
+        response = self.session.post(self._build_url(path), json=json)
+        data = self._handle_response(response)
+
+        parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
+
+        return APIResponse(
+            data=parsed_data,
+            status_code=response.status_code,
+            headers=dict(response.headers)
+        )
+
+    @with_retry(max_retries=4, base_delay=1.0, network_errors=CONNECT_ERRORS)
+    def post_once(
+            self,
+            path: str,
+            model: Type[T],
+            json: Optional[Dict[str, Any]] = None
+          ) -> APIResponse[T]:
+
+        """Make a POST request that must not run twice, such as one that creates something.
+        It's only retried if the connection never opened, so a lost response can't run it again."""
 
         if json is not None:
             # Filter out None values

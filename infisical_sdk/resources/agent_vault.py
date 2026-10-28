@@ -89,7 +89,7 @@ class AgentVaultProxies:
             "pollInterval": poll_interval,
         }
 
-        result = self.requests.post(
+        result = self.requests.post_once(
             path="/api/v1/agent-vault/proxies",
             json=request_body,
             model=AgentVaultProxyWithTokenResponse
@@ -271,7 +271,7 @@ class AgentVaultSessions:
             "label": label,
         }
 
-        result = self.requests.post(
+        result = self.requests.post_once(
             path="/api/v1/agent-vault/sessions",
             json=request_body,
             model=CreateAgentVaultSessionResponse
