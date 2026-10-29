@@ -52,3 +52,33 @@ def test_creates_are_not_retried_once_the_request_may_have_reached_the_server(ap
     with pytest.raises(requests.exceptions.ReadTimeout):
         create(agent_vault)
     assert api.session.post.call_count == 1
+
+
+def test_proxies_create_leaves_out_an_empty_allowed_hosts_list(api, agent_vault, json_response):
+    api.session.post.return_value = json_response({"proxy": PROXY, "proxyToken": "token"})
+    agent_vault.proxies.create(name="edge-proxy", allowed_hosts=[])
+    assert "allowedHosts" not in api.session.post.call_args.kwargs["json"]
+
+
+def test_proxies_update_rejects_an_empty_allowed_hosts_list(api, agent_vault):
+    with pytest.raises(ValueError, match="clear_allowed_hosts"):
+        agent_vault.proxies.update(PROXY["id"], allowed_hosts=[])
+    api.session.patch.assert_not_called()
+
+
+def test_proxies_rotate_token_is_not_retried_once_the_request_may_have_reached_the_server(api, agent_vault):
+    api.session.post.side_effect = requests.exceptions.ReadTimeout()
+    with pytest.raises(requests.exceptions.ReadTimeout):
+        agent_vault.proxies.rotate_token(PROXY["id"])
+    assert api.session.post.call_count == 1
+
+
+def test_sessions_revoke_leaves_access_bundles_unset_when_the_response_omits_them(api, agent_vault, json_response):
+    revoked = {key: value for key, value in SESSION.items() if key != "accessBundles"}
+    api.session.post.return_value = json_response({"session": dict(revoked, status="revoked")})
+    assert agent_vault.sessions.revoke(SESSION["id"]).accessBundles is None
+
+
+def test_sessions_get_keeps_an_empty_access_bundles_list(api, agent_vault, json_response):
+    api.session.get.return_value = json_response({"session": SESSION})
+    assert agent_vault.sessions.get(SESSION["id"]).accessBundles == []

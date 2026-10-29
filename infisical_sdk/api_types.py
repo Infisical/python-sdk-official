@@ -544,17 +544,18 @@ class AgentVaultSession(BaseModel):
     actor: Optional[AgentVaultSessionActor] = None
     expiresAt: Optional[str] = None
     revokedAt: Optional[str] = None
-    accessBundles: List[AgentVaultSessionAccessBundle] = field(default_factory=list)
+    accessBundles: Optional[List[AgentVaultSessionAccessBundle]] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'AgentVaultSession':
-        """Create model from dictionary with nested actor and access bundles"""
+        """Create model from dictionary with nested actor and access bundles. accessBundles is None if the response leaves it out."""
         session_data = data.copy()
         if data.get('actor') is not None:
             session_data['actor'] = AgentVaultSessionActor.from_dict(data['actor'])
-        session_data['accessBundles'] = [
-            AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data.get('accessBundles', [])
-        ]
+        if data.get('accessBundles') is not None:
+            session_data['accessBundles'] = [
+                AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data['accessBundles']
+            ]
 
         return super().from_dict(session_data)
 

@@ -18,9 +18,9 @@ from infisical_sdk.api_types import (
 
 
 def _join_hosts(allowed_hosts: Optional[Union[str, List[str]]]) -> Optional[str]:
-    """The API takes host patterns as one comma-separated string."""
+    """The API takes host patterns as one comma-separated string, and rejects an empty one."""
     if isinstance(allowed_hosts, list):
-        return ",".join(allowed_hosts)
+        return ",".join(allowed_hosts) or None
     return allowed_hosts
 
 
@@ -120,6 +120,8 @@ class AgentVaultProxies:
         """
         if clear_allowed_hosts and allowed_hosts is not None:
             raise ValueError("Pass either allowed_hosts or clear_allowed_hosts, not both")
+        if allowed_hosts == []:
+            raise ValueError("allowed_hosts can't be empty. To remove every allowed host, pass clear_allowed_hosts=True")
 
         if isinstance(traffic_policy, AgentVaultTrafficPolicy):
             traffic_policy = traffic_policy.value
@@ -165,7 +167,7 @@ class AgentVaultProxies:
         Returns:
             AgentVaultProxyWithTokenResponse containing the proxy and its new proxyToken. The token is only returned once.
         """
-        result = self.requests.post(
+        result = self.requests.post_once(
             path=f"/api/v1/agent-vault/proxies/{proxy_id}/token-auth/proxy-token",
             model=AgentVaultProxyWithTokenResponse
         )
@@ -309,7 +311,7 @@ class AgentVaultSessions:
             session_id: The ID of the session to revoke.
 
         Returns:
-            The revoked session.
+            The revoked session. Its accessBundles is None, because the response leaves the bundles out; call get for them.
         """
         result = self.requests.post(
             path=f"/api/v1/agent-vault/sessions/{session_id}/revoke",
