@@ -1,6 +1,7 @@
 import pytest
 import requests
 
+from infisical_sdk.api_types import AgentVaultSessionActor
 from infisical_sdk.resources.agent_vault import AgentVault
 
 PROXY = {"id": "a2b5e0d1-6f3e-4c55-9a43-3f0c1f0a2b7e", "name": "edge-proxy"}
@@ -10,6 +11,14 @@ SESSION = {
     "status": "active",
     "createdAt": "2026-10-27T00:00:00.000Z",
     "accessBundles": [],
+}
+ON_BEHALF_OF = {
+    "type": "user",
+    "id": "0d9a7c3e-5b1f-4e2a-8c6d-7f4b2e1a9c50",
+    "username": "jsmith@example.com",
+    "email": "jsmith@example.com",
+    "firstName": "Jane",
+    "lastName": "Smith",
 }
 
 
@@ -82,3 +91,38 @@ def test_sessions_revoke_leaves_access_bundles_unset_when_the_response_omits_the
 def test_sessions_get_keeps_an_empty_access_bundles_list(api, agent_vault, json_response):
     api.session.get.return_value = json_response({"session": SESSION})
     assert agent_vault.sessions.get(SESSION["id"]).accessBundles == []
+
+
+def test_sessions_create_leaves_out_ttl_so_the_server_picks_the_default(api, agent_vault, json_response):
+    api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
+    agent_vault.sessions.create(access_bundle="release")
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": ["release"]}
+
+
+@pytest.mark.parametrize("kwargs, on_behalf_of", [
+    ({"on_behalf_of_user_email": ON_BEHALF_OF["email"]}, {"userEmail": ON_BEHALF_OF["email"]}),
+    ({"on_behalf_of_user_id": ON_BEHALF_OF["id"]}, {"userId": ON_BEHALF_OF["id"]}),
+    ({"on_behalf_of_user_email": ""}, {"userEmail": ""}),
+], ids=["email", "id", "empty email"])
+def test_sessions_create_names_the_user_it_acts_for(api, agent_vault, json_response, kwargs, on_behalf_of):
+    api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
+    agent_vault.sessions.create(access_bundle="release", **kwargs)
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": ["release"], "onBehalfOf": on_behalf_of}
+
+
+def test_sessions_create_rejects_both_a_user_email_and_a_user_id(api, agent_vault):
+    with pytest.raises(ValueError, match="not both"):
+        agent_vault.sessions.create(
+            access_bundle="release",
+            on_behalf_of_user_email=ON_BEHALF_OF["email"],
+            on_behalf_of_user_id=ON_BEHALF_OF["id"],
+        )
+    api.session.post.assert_not_called()
+
+
+@pytest.mark.parametrize("on_behalf_of", [ON_BEHALF_OF, dict(ON_BEHALF_OF, id=None), None],
+                         ids=["user", "deleted user", "own session"])
+def test_sessions_get_reads_the_user_a_session_acts_for(api, agent_vault, json_response, on_behalf_of):
+    api.session.get.return_value = json_response({"session": dict(SESSION, onBehalfOf=on_behalf_of)})
+    expected = AgentVaultSessionActor(**on_behalf_of) if on_behalf_of else None
+    assert agent_vault.sessions.get(SESSION["id"]).onBehalfOf == expected
