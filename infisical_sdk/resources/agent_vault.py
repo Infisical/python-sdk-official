@@ -209,7 +209,7 @@ class AgentVaultSessions:
         Args:
             scope: Whose sessions to list: your own ("mine") or everyone's ("all", administrators only). Defaults to "mine".
             statuses: Only return sessions with any of these statuses: "active", "revoked" or "expired".
-            search: Match sessions by label, actor name, actor email or access bundle name.
+            search: Match sessions by label, actor name, actor email, the name or email of the user a session was started on behalf of, or access bundle name.
             limit: The maximum number of sessions to return (1-100). Defaults to 20.
             offset: How many sessions to skip. Defaults to 0.
 
@@ -255,22 +255,42 @@ class AgentVaultSessions:
     def create(
             self,
             access_bundle: str,
-            ttl: str = "7d",
-            label: Optional[str] = None) -> CreatedAgentVaultSession:
-        """Create an Agent Vault session with an access bundle you can reach.
+            ttl: Optional[str] = None,
+            label: Optional[str] = None,
+            on_behalf_of_user_email: Optional[str] = None,
+            on_behalf_of_user_id: Optional[str] = None) -> CreatedAgentVaultSession:
+        """Create an Agent Vault session with an access bundle you can reach, or, as a machine identity with a delegation, on behalf of a user.
+
+        To start a session on behalf of a user, you must be a machine identity whose delegation covers the user. The proxy
+        then uses the user's personal values, and the session can use only an access bundle that both the user and your
+        machine identity can use. The session still belongs to your machine identity, so the user can't see it. Infisical
+        versions that don't support sessions on behalf of users ignore on_behalf_of_user_email and on_behalf_of_user_id,
+        and create the session for your machine identity instead.
 
         Args:
             access_bundle: The name of the access bundle the session carries.
-            ttl: How long the session lasts: a duration such as "30m", "8h" or "7d" (at least 1m), or "never". Defaults to "7d".
+            ttl: How long the session lasts: a duration such as "30m", "8h" or "7d" (at least 1m), or "never". Defaults to "7d", or to "1h" for a session on behalf of a user.
             label: A short description of what the session is for, such as "nightly deploy". Up to 128 characters, without line breaks, tabs, or invisible characters.
+            on_behalf_of_user_email: The email address of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_id.
+            on_behalf_of_user_id: The ID of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_email.
 
         Returns:
             The created session, including its token. The token is only returned once.
         """
+        if on_behalf_of_user_email is not None and on_behalf_of_user_id is not None:
+            raise ValueError("Pass either on_behalf_of_user_email or on_behalf_of_user_id, not both")
+
+        on_behalf_of = None
+        if on_behalf_of_user_email is not None:
+            on_behalf_of = {"userEmail": on_behalf_of_user_email}
+        elif on_behalf_of_user_id is not None:
+            on_behalf_of = {"userId": on_behalf_of_user_id}
+
         request_body = {
             "accessBundles": [access_bundle],
             "ttl": ttl,
             "label": label,
+            "onBehalfOf": on_behalf_of,
         }
 
         result = self.requests.post_once(
@@ -286,7 +306,7 @@ class AgentVaultSessions:
 
         Args:
             session_id: The ID of the session to update.
-            label: The new label for the session, up to 128 characters, without line breaks, tabs, or invisible characters. Pass None or an empty string to remove the label. You can't change the label once the session's owner is deleted.
+            label: The new label for the session, up to 128 characters, without line breaks, tabs, or invisible characters. Pass None or an empty string to remove the label. You can't change the label once the session's owner, or the user it was started on behalf of, is deleted.
 
         Returns:
             The updated session.

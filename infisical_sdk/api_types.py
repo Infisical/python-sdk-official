@@ -518,7 +518,7 @@ class ListAgentVaultProxiesResponse(BaseModel):
 
 @dataclass
 class AgentVaultSessionActor(BaseModel):
-    """The user or machine identity an Agent Vault session belongs to"""
+    """The user or machine identity an Agent Vault session belongs to, or the user it was started on behalf of"""
     type: str
     id: Optional[str] = None
     username: Optional[str] = None
@@ -545,13 +545,16 @@ class AgentVaultSession(BaseModel):
     expiresAt: Optional[str] = None
     revokedAt: Optional[str] = None
     accessBundles: Optional[List[AgentVaultSessionAccessBundle]] = None
+    onBehalfOf: Optional[AgentVaultSessionActor] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'AgentVaultSession':
-        """Create model from dictionary with nested actor and access bundles. accessBundles is None if the response leaves it out."""
+        """Create model from dictionary with nested actor, on-behalf-of user and access bundles. accessBundles is None if the response leaves it out."""
         session_data = data.copy()
         if data.get('actor') is not None:
             session_data['actor'] = AgentVaultSessionActor.from_dict(data['actor'])
+        if data.get('onBehalfOf') is not None:
+            session_data['onBehalfOf'] = AgentVaultSessionActor.from_dict(data['onBehalfOf'])
         if data.get('accessBundles') is not None:
             session_data['accessBundles'] = [
                 AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data['accessBundles']
