@@ -47,6 +47,23 @@ export REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
 
 These paths are the operating system bundles, so the CA must be added there first (for example with `update-ca-certificates` or `update-ca-trust`). You can also point `REQUESTS_CA_BUNDLE` to a PEM file that holds only your CA.
 
+## JWT authentication
+
+For a Machine Identity configured with JWT Auth, use `jwt_auth` (OIDC Auth is a separate method):
+
+```python
+from infisical_sdk import InfisicalSDKClient
+
+with InfisicalSDKClient(host="https://us.infisical.com") as client:
+    auth = client.auth.jwt_auth.login(identity_id=identity_id, jwt=identity_jwt)
+    # Subsequent SDK requests use the returned access token automatically.
+```
+
+Pass `organization_slug="your-org"` to scope the login to an organization.
+See the [JWT Auth API reference](https://infisical.com/docs/api-reference/endpoints/jwt-auth/login).
+
+Run the offline regression tests with `pytest tests` after installing `test-requirements.txt`.
+
 ## Security
 
 Please do not file GitHub issues or post on our public forum for security vulnerabilities, as they are public!
