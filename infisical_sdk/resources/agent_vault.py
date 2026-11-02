@@ -29,9 +29,11 @@ from infisical_sdk.api_types import (
 
 
 def _join_hosts(allowed_hosts: Optional[Union[str, List[str]]]) -> Optional[str]:
-    """The API takes host patterns as one comma-separated string, and rejects an empty one."""
+    """The API takes host patterns as one comma-separated string and rejects an empty one, so empty values become None."""
     if isinstance(allowed_hosts, list):
-        return ",".join(allowed_hosts) or None
+        allowed_hosts = ",".join(allowed_hosts)
+    if allowed_hosts is not None and not allowed_hosts.strip():
+        return None
     return allowed_hosts
 
 
@@ -131,7 +133,6 @@ class AgentVaultProxies:
             traffic_policy: Optional[Union[AgentVaultTrafficPolicy, str]] = None,
             allowed_hosts: Optional[Union[str, List[str]]] = None,
             poll_interval: Optional[int] = None,
-            clear_allowed_hosts: bool = False,
             description: Optional[str] = None) -> AgentVaultProxy:
         """Update an Agent Vault proxy's name, description or settings. Only the values you pass are changed.
 
@@ -139,26 +140,24 @@ class AgentVaultProxies:
             proxy_id: The ID of the proxy to update.
             name: The new name of the proxy.
             traffic_policy: Which hosts an agent may reach through this proxy.
-            allowed_hosts: Hosts that stay reachable under the "bundle-hosts" traffic policy. A list or a comma-separated string.
+            allowed_hosts: Hosts that stay reachable under the "bundle-hosts" traffic policy. A list or a comma-separated string. Pass an empty list or string to remove every allowed host.
             poll_interval: How often, in seconds, the proxy refreshes its sessions and settings (10-300).
-            clear_allowed_hosts: Remove all allowed hosts. Can't be combined with allowed_hosts.
             description: The new description, up to 256 characters, without line breaks or other control characters. Pass an empty string to remove the description.
 
         Returns:
             The updated proxy.
         """
-        if clear_allowed_hosts and allowed_hosts is not None:
-            raise ValueError("Pass either allowed_hosts or clear_allowed_hosts, not both")
-        if allowed_hosts == []:
-            raise ValueError("allowed_hosts can't be empty. To remove every allowed host, pass clear_allowed_hosts=True")
-
         if isinstance(traffic_policy, AgentVaultTrafficPolicy):
             traffic_policy = traffic_policy.value
+
+        hosts = _join_hosts(allowed_hosts)
+        # An empty value removes every allowed host, which the API takes as null.
+        remove_hosts = allowed_hosts is not None and hosts is None
 
         request_body = {
             "name": name,
             "trafficPolicy": traffic_policy,
-            "allowedHosts": _join_hosts(allowed_hosts),
+            "allowedHosts": hosts,
             "pollInterval": poll_interval,
             "description": description,
         }
@@ -167,7 +166,7 @@ class AgentVaultProxies:
             path=f"/api/v1/agent-vault/proxies/{proxy_id}",
             json=request_body,
             model=SingleAgentVaultProxyResponse,
-            nullable_keys=["allowedHosts"] if clear_allowed_hosts else None
+            nullable_keys=["allowedHosts"] if remove_hosts else None
         )
 
         return result.data.proxy

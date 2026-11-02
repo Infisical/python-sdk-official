@@ -49,9 +49,10 @@ def agent_vault(api):
     return AgentVault(api)
 
 
-def test_proxies_update_sends_null_to_clear_allowed_hosts(api, agent_vault, json_response):
+@pytest.mark.parametrize("allowed_hosts", [[], "", "  "], ids=["empty list", "empty string", "blank string"])
+def test_proxies_update_sends_null_for_empty_allowed_hosts(api, agent_vault, json_response, allowed_hosts):
     api.session.patch.return_value = json_response({"proxy": PROXY})
-    agent_vault.proxies.update(PROXY["id"], clear_allowed_hosts=True)
+    agent_vault.proxies.update(PROXY["id"], allowed_hosts=allowed_hosts)
     assert api.session.patch.call_args.kwargs["json"] == {"allowedHosts": None}
 
 
@@ -59,12 +60,6 @@ def test_proxies_update_leaves_out_values_you_do_not_pass(api, agent_vault, json
     api.session.patch.return_value = json_response({"proxy": PROXY})
     agent_vault.proxies.update(PROXY["id"], name="edge-proxy")
     assert api.session.patch.call_args.kwargs["json"] == {"name": "edge-proxy"}
-
-
-def test_proxies_update_rejects_allowed_hosts_with_clear_allowed_hosts(api, agent_vault):
-    with pytest.raises(ValueError):
-        agent_vault.proxies.update(PROXY["id"], allowed_hosts=["pypi.org"], clear_allowed_hosts=True)
-    api.session.patch.assert_not_called()
 
 
 def test_proxies_create_sends_and_reads_the_description(api, agent_vault, json_response):
@@ -76,7 +71,7 @@ def test_proxies_create_sends_and_reads_the_description(api, agent_vault, json_r
 
 @pytest.mark.parametrize("kwargs, body", [
     ({"description": ""}, {"description": ""}),
-    ({"description": "", "clear_allowed_hosts": True}, {"description": "", "allowedHosts": None}),
+    ({"description": "", "allowed_hosts": []}, {"description": "", "allowedHosts": None}),
 ], ids=["description", "description and allowed hosts"])
 def test_proxies_update_sends_an_empty_description_to_remove_it(api, agent_vault, json_response, kwargs, body):
     api.session.patch.return_value = json_response({"proxy": PROXY})
@@ -103,16 +98,11 @@ def test_creates_are_not_retried_once_the_request_may_have_reached_the_server(ap
     assert api.session.post.call_count == 1
 
 
-def test_proxies_create_leaves_out_an_empty_allowed_hosts_list(api, agent_vault, json_response):
+@pytest.mark.parametrize("allowed_hosts", [[], ""], ids=["empty list", "empty string"])
+def test_proxies_create_leaves_out_empty_allowed_hosts(api, agent_vault, json_response, allowed_hosts):
     api.session.post.return_value = json_response({"proxy": PROXY, "proxyToken": "token"})
-    agent_vault.proxies.create(name="edge-proxy", allowed_hosts=[])
+    agent_vault.proxies.create(name="edge-proxy", allowed_hosts=allowed_hosts)
     assert "allowedHosts" not in api.session.post.call_args.kwargs["json"]
-
-
-def test_proxies_update_rejects_an_empty_allowed_hosts_list(api, agent_vault):
-    with pytest.raises(ValueError, match="clear_allowed_hosts"):
-        agent_vault.proxies.update(PROXY["id"], allowed_hosts=[])
-    api.session.patch.assert_not_called()
 
 
 def test_proxies_rotate_token_is_not_retried_once_the_request_may_have_reached_the_server(api, agent_vault):
