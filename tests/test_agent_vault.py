@@ -75,19 +75,13 @@ def test_proxies_create_sends_and_reads_the_description(api, agent_vault, json_r
 
 
 @pytest.mark.parametrize("kwargs, body", [
-    ({"clear_description": True}, {"description": None}),
-    ({"clear_description": True, "clear_allowed_hosts": True}, {"allowedHosts": None, "description": None}),
+    ({"description": ""}, {"description": ""}),
+    ({"description": "", "clear_allowed_hosts": True}, {"description": "", "allowedHosts": None}),
 ], ids=["description", "description and allowed hosts"])
-def test_proxies_update_sends_null_to_clear_the_description(api, agent_vault, json_response, kwargs, body):
+def test_proxies_update_sends_an_empty_description_to_remove_it(api, agent_vault, json_response, kwargs, body):
     api.session.patch.return_value = json_response({"proxy": PROXY})
     agent_vault.proxies.update(PROXY["id"], **kwargs)
     assert api.session.patch.call_args.kwargs["json"] == body
-
-
-def test_proxies_update_rejects_a_description_with_clear_description(api, agent_vault):
-    with pytest.raises(ValueError, match="not both"):
-        agent_vault.proxies.update(PROXY["id"], description="Edge traffic", clear_description=True)
-    api.session.patch.assert_not_called()
 
 
 @pytest.mark.parametrize("label", ["nightly deploy", None])
@@ -215,16 +209,10 @@ def test_access_bundles_get_reads_services_and_keeps_their_nested_settings(api, 
     assert (read.name, read.credential["type"], read.variableReferences) == ("github", "bearer", None)
 
 
-def test_access_bundles_update_sends_null_to_clear_the_description(api, agent_vault, json_response):
+def test_access_bundles_update_sends_an_empty_description_to_remove_it(api, agent_vault, json_response):
     api.session.patch.return_value = json_response({"accessBundle": BUNDLE})
-    agent_vault.access_bundles.update(BUNDLE["id"], clear_description=True)
-    assert api.session.patch.call_args.kwargs["json"] == {"description": None}
-
-
-def test_access_bundles_update_rejects_a_description_with_clear_description(api, agent_vault):
-    with pytest.raises(ValueError, match="not both"):
-        agent_vault.access_bundles.update(BUNDLE["id"], description="Release tooling", clear_description=True)
-    api.session.patch.assert_not_called()
+    agent_vault.access_bundles.update(BUNDLE["id"], description="")
+    assert api.session.patch.call_args.kwargs["json"] == {"description": ""}
 
 
 def test_access_bundles_grant_and_revoke_send_only_the_grantees_you_name(api, agent_vault, json_response):

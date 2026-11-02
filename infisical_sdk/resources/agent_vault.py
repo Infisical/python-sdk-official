@@ -132,8 +132,7 @@ class AgentVaultProxies:
             allowed_hosts: Optional[Union[str, List[str]]] = None,
             poll_interval: Optional[int] = None,
             clear_allowed_hosts: bool = False,
-            description: Optional[str] = None,
-            clear_description: bool = False) -> AgentVaultProxy:
+            description: Optional[str] = None) -> AgentVaultProxy:
         """Update an Agent Vault proxy's name, description or settings. Only the values you pass are changed.
 
         Args:
@@ -143,16 +142,13 @@ class AgentVaultProxies:
             allowed_hosts: Hosts that stay reachable under the "bundle-hosts" traffic policy. A list or a comma-separated string.
             poll_interval: How often, in seconds, the proxy refreshes its sessions and settings (10-300).
             clear_allowed_hosts: Remove all allowed hosts. Can't be combined with allowed_hosts.
-            description: The new description, up to 256 characters, without line breaks or other control characters.
-            clear_description: Remove the description. Can't be combined with description.
+            description: The new description, up to 256 characters, without line breaks or other control characters. Pass an empty string to remove the description.
 
         Returns:
             The updated proxy.
         """
         if clear_allowed_hosts and allowed_hosts is not None:
             raise ValueError("Pass either allowed_hosts or clear_allowed_hosts, not both")
-        if clear_description and description is not None:
-            raise ValueError("Pass either description or clear_description, not both")
         if allowed_hosts == []:
             raise ValueError("allowed_hosts can't be empty. To remove every allowed host, pass clear_allowed_hosts=True")
 
@@ -166,13 +162,12 @@ class AgentVaultProxies:
             "pollInterval": poll_interval,
             "description": description,
         }
-        nullable_keys = [key for key, clear in (("allowedHosts", clear_allowed_hosts), ("description", clear_description)) if clear]
 
         result = self.requests.patch(
             path=f"/api/v1/agent-vault/proxies/{proxy_id}",
             json=request_body,
             model=SingleAgentVaultProxyResponse,
-            nullable_keys=nullable_keys
+            nullable_keys=["allowedHosts"] if clear_allowed_hosts else None
         )
 
         return result.data.proxy
@@ -473,22 +468,17 @@ class AgentVaultAccessBundles:
             self,
             access_bundle_id: str,
             name: Optional[str] = None,
-            description: Optional[str] = None,
-            clear_description: bool = False) -> AgentVaultAccessBundle:
+            description: Optional[str] = None) -> AgentVaultAccessBundle:
         """Update an Agent Vault access bundle's name or description. Only the values you pass are changed.
 
         Args:
             access_bundle_id: The ID of the access bundle to update.
             name: The new name of the access bundle (a slug, at most 64 characters).
-            description: The new description, up to 256 characters, without line breaks or other control characters.
-            clear_description: Remove the description. Can't be combined with description.
+            description: The new description, up to 256 characters, without line breaks or other control characters. Pass an empty string to remove the description.
 
         Returns:
             The updated access bundle.
         """
-        if clear_description and description is not None:
-            raise ValueError("Pass either description or clear_description, not both")
-
         request_body = {
             "name": name,
             "description": description,
@@ -497,8 +487,7 @@ class AgentVaultAccessBundles:
         result = self.requests.patch(
             path=f"/api/v1/agent-vault/access-bundles/{access_bundle_id}",
             json=request_body,
-            model=SingleAgentVaultAccessBundleResponse,
-            nullable_keys=["description"] if clear_description else None
+            model=SingleAgentVaultAccessBundleResponse
         )
 
         return result.data.accessBundle
