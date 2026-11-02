@@ -489,6 +489,7 @@ class AgentVaultProxy(BaseModel):
     allowedHosts: Optional[str] = None
     pollInterval: Optional[int] = None
     createdAt: Optional[str] = None
+    description: Optional[str] = None
 
 @dataclass
 class SingleAgentVaultProxyResponse(BaseModel):

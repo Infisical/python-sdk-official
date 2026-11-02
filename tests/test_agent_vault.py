@@ -67,6 +67,29 @@ def test_proxies_update_rejects_allowed_hosts_with_clear_allowed_hosts(api, agen
     api.session.patch.assert_not_called()
 
 
+def test_proxies_create_sends_and_reads_the_description(api, agent_vault, json_response):
+    api.session.post.return_value = json_response({"proxy": dict(PROXY, description="Edge traffic"), "proxyToken": "token"})
+    created = agent_vault.proxies.create(name="edge-proxy", description="Edge traffic")
+    assert api.session.post.call_args.kwargs["json"]["description"] == "Edge traffic"
+    assert created.proxy.description == "Edge traffic"
+
+
+@pytest.mark.parametrize("kwargs, body", [
+    ({"clear_description": True}, {"description": None}),
+    ({"clear_description": True, "clear_allowed_hosts": True}, {"allowedHosts": None, "description": None}),
+], ids=["description", "description and allowed hosts"])
+def test_proxies_update_sends_null_to_clear_the_description(api, agent_vault, json_response, kwargs, body):
+    api.session.patch.return_value = json_response({"proxy": PROXY})
+    agent_vault.proxies.update(PROXY["id"], **kwargs)
+    assert api.session.patch.call_args.kwargs["json"] == body
+
+
+def test_proxies_update_rejects_a_description_with_clear_description(api, agent_vault):
+    with pytest.raises(ValueError, match="not both"):
+        agent_vault.proxies.update(PROXY["id"], description="Edge traffic", clear_description=True)
+    api.session.patch.assert_not_called()
+
+
 @pytest.mark.parametrize("label", ["nightly deploy", None])
 def test_sessions_update_always_sends_the_label(api, agent_vault, json_response, label):
     api.session.patch.return_value = json_response({"session": dict(SESSION, label=label)})

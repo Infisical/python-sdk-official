@@ -64,7 +64,7 @@ class AgentVaultProxies:
         """List the organization's Agent Vault proxies.
 
         Args:
-            search: Match proxies by name.
+            search: Match proxies by name or description.
             order_by: What to sort proxies by: "name" or "createdAt". Defaults to "createdAt".
             order_direction: Which way to sort: "asc" or "desc". Defaults to "desc".
             limit: The maximum number of proxies to return (1-100). Defaults to 20.
@@ -94,7 +94,8 @@ class AgentVaultProxies:
             name: str,
             traffic_policy: Union[AgentVaultTrafficPolicy, str] = AgentVaultTrafficPolicy.ANY_HOST,
             allowed_hosts: Optional[Union[str, List[str]]] = None,
-            poll_interval: int = 60) -> AgentVaultProxyWithTokenResponse:
+            poll_interval: int = 60,
+            description: Optional[str] = None) -> AgentVaultProxyWithTokenResponse:
         """Register an Agent Vault proxy and issue its proxy token.
 
         Args:
@@ -102,6 +103,7 @@ class AgentVaultProxies:
             traffic_policy: Which hosts an agent may reach through this proxy. Defaults to "any-host".
             allowed_hosts: Hosts that stay reachable under the "bundle-hosts" traffic policy even though no access bundle covers them. A list or a comma-separated string.
             poll_interval: How often, in seconds, the proxy refreshes its sessions and settings (10-300). Defaults to 60.
+            description: What the proxy is for, up to 256 characters, without line breaks or other control characters.
 
         Returns:
             AgentVaultProxyWithTokenResponse containing the proxy and its proxyToken. The token is only returned once.
@@ -111,6 +113,7 @@ class AgentVaultProxies:
             "trafficPolicy": traffic_policy.value if isinstance(traffic_policy, AgentVaultTrafficPolicy) else traffic_policy,
             "allowedHosts": _join_hosts(allowed_hosts),
             "pollInterval": poll_interval,
+            "description": description,
         }
 
         result = self.requests.post_once(
@@ -128,8 +131,10 @@ class AgentVaultProxies:
             traffic_policy: Optional[Union[AgentVaultTrafficPolicy, str]] = None,
             allowed_hosts: Optional[Union[str, List[str]]] = None,
             poll_interval: Optional[int] = None,
-            clear_allowed_hosts: bool = False) -> AgentVaultProxy:
-        """Update an Agent Vault proxy's name or settings. Only the values you pass are changed.
+            clear_allowed_hosts: bool = False,
+            description: Optional[str] = None,
+            clear_description: bool = False) -> AgentVaultProxy:
+        """Update an Agent Vault proxy's name, description or settings. Only the values you pass are changed.
 
         Args:
             proxy_id: The ID of the proxy to update.
@@ -138,12 +143,16 @@ class AgentVaultProxies:
             allowed_hosts: Hosts that stay reachable under the "bundle-hosts" traffic policy. A list or a comma-separated string.
             poll_interval: How often, in seconds, the proxy refreshes its sessions and settings (10-300).
             clear_allowed_hosts: Remove all allowed hosts. Can't be combined with allowed_hosts.
+            description: The new description, up to 256 characters, without line breaks or other control characters.
+            clear_description: Remove the description. Can't be combined with description.
 
         Returns:
             The updated proxy.
         """
         if clear_allowed_hosts and allowed_hosts is not None:
             raise ValueError("Pass either allowed_hosts or clear_allowed_hosts, not both")
+        if clear_description and description is not None:
+            raise ValueError("Pass either description or clear_description, not both")
         if allowed_hosts == []:
             raise ValueError("allowed_hosts can't be empty. To remove every allowed host, pass clear_allowed_hosts=True")
 
@@ -155,13 +164,15 @@ class AgentVaultProxies:
             "trafficPolicy": traffic_policy,
             "allowedHosts": _join_hosts(allowed_hosts),
             "pollInterval": poll_interval,
+            "description": description,
         }
+        nullable_keys = [key for key, clear in (("allowedHosts", clear_allowed_hosts), ("description", clear_description)) if clear]
 
         result = self.requests.patch(
             path=f"/api/v1/agent-vault/proxies/{proxy_id}",
             json=request_body,
             model=SingleAgentVaultProxyResponse,
-            nullable_keys=["allowedHosts"] if clear_allowed_hosts else None
+            nullable_keys=nullable_keys
         )
 
         return result.data.proxy
