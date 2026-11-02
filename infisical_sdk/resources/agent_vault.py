@@ -268,7 +268,7 @@ class AgentVaultSessions:
             The created session, including its token. The token is only returned once.
         """
         request_body = {
-            "accessBundles": [access_bundle],
+            "accessBundle": access_bundle,
             "ttl": ttl,
             "label": label,
         }
@@ -311,7 +311,7 @@ class AgentVaultSessions:
             session_id: The ID of the session to revoke.
 
         Returns:
-            The revoked session. Its accessBundles is None, because the response leaves the bundles out; call get for them.
+            The revoked session. Its accessBundle is None, because the response leaves the bundle out; call get for it.
         """
         result = self.requests.post(
             path=f"/api/v1/agent-vault/sessions/{session_id}/revoke",

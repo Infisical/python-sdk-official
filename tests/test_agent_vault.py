@@ -9,7 +9,7 @@ SESSION = {
     "label": None,
     "status": "active",
     "createdAt": "2026-10-27T00:00:00.000Z",
-    "accessBundles": [],
+    "accessBundle": {"id": "0d3f8a51-7c2e-4b9a-8e16-5a4c3b2d1f07", "name": "release"},
 }
 
 
@@ -73,12 +73,27 @@ def test_proxies_rotate_token_is_not_retried_once_the_request_may_have_reached_t
     assert api.session.post.call_count == 1
 
 
-def test_sessions_revoke_leaves_access_bundles_unset_when_the_response_omits_them(api, agent_vault, json_response):
-    revoked = {key: value for key, value in SESSION.items() if key != "accessBundles"}
+def test_sessions_revoke_leaves_the_access_bundle_unset_when_the_response_omits_it(api, agent_vault, json_response):
+    revoked = {key: value for key, value in SESSION.items() if key != "accessBundle"}
     api.session.post.return_value = json_response({"session": dict(revoked, status="revoked")})
-    assert agent_vault.sessions.revoke(SESSION["id"]).accessBundles is None
+    assert agent_vault.sessions.revoke(SESSION["id"]).accessBundle is None
 
 
-def test_sessions_get_keeps_an_empty_access_bundles_list(api, agent_vault, json_response):
+def test_sessions_get_reads_the_access_bundle(api, agent_vault, json_response):
     api.session.get.return_value = json_response({"session": SESSION})
-    assert agent_vault.sessions.get(SESSION["id"]).accessBundles == []
+    bundle = agent_vault.sessions.get(SESSION["id"]).accessBundle
+    assert (bundle.id, bundle.name) == (SESSION["accessBundle"]["id"], "release")
+
+
+def test_sessions_get_keeps_the_name_of_a_deleted_access_bundle(api, agent_vault, json_response):
+    api.session.get.return_value = json_response({"session": dict(SESSION, accessBundle={"id": None, "name": "release"})})
+    bundle = agent_vault.sessions.get(SESSION["id"]).accessBundle
+    assert (bundle.id, bundle.name) == (None, "release")
+
+
+def test_sessions_create_sends_one_access_bundle(api, agent_vault, json_response):
+    created = {"id": SESSION["id"], "token": "agv_token", "createdAt": SESSION["createdAt"], "accessBundle": SESSION["accessBundle"]}
+    api.session.post.return_value = json_response({"session": created})
+    session = agent_vault.sessions.create(access_bundle="release", ttl="1h")
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "ttl": "1h"}
+    assert session.accessBundle.name == "release"
