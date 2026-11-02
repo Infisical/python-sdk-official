@@ -257,6 +257,31 @@ class InfisicalRequests:
         )
 
     @with_retry(max_retries=4, base_delay=1.0)
+    def put(
+            self,
+            path: str,
+            model: Type[T],
+            json: Optional[Dict[str, Any]] = None
+          ) -> APIResponse[T]:
+
+        """Make a PUT request with JSON data. A PUT replaces the whole resource, so it's safe to retry."""
+
+        if json is not None:
+            # Filter out None values
+            json = {k: v for k, v in json.items() if v is not None}
+
+        response = self.session.put(self._build_url(path), json=json)
+        data = self._handle_response(response)
+
+        parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
+
+        return APIResponse(
+            data=parsed_data,
+            status_code=response.status_code,
+            headers=dict(response.headers)
+        )
+
+    @with_retry(max_retries=4, base_delay=1.0)
     def delete(
             self,
             path: str,

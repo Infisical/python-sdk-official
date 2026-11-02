@@ -465,6 +465,17 @@ class AgentVaultSessionScope(str, Enum):
     MINE = "mine"
     ALL = "all"
 
+class AgentVaultMemberType(str, Enum):
+    """Enum for the kinds of Agent Vault member: users, machine identities and groups"""
+    USER = "user"
+    MACHINE_IDENTITY = "machineIdentity"
+    GROUP = "group"
+
+class AgentVaultDelegationScope(str, Enum):
+    """Enum for which users a machine identity can create Agent Vault sessions on behalf of"""
+    ALL_MEMBERS = "all-members"
+    SELECTED = "selected"
+
 @dataclass
 class AgentVaultProxy(BaseModel):
     """Infisical Agent Vault Proxy. Only admins see the settings fields, so they are None for members."""
@@ -614,5 +625,252 @@ class ListAgentVaultSessionsResponse(BaseModel):
     def from_dict(cls, data: Dict) -> 'ListAgentVaultSessionsResponse':
         return cls(
             sessions=[AgentVaultSession.from_dict(session) for session in data['sessions']],
+            totalCount=data['totalCount'],
+        )
+
+@dataclass
+class AgentVaultServiceRef(BaseModel):
+    """An Agent Vault service, by ID and name"""
+    id: str
+    name: str
+
+@dataclass
+class AgentVaultAccessBundleRef(BaseModel):
+    """An Agent Vault access bundle, by ID and name"""
+    id: str
+    name: str
+
+@dataclass
+class AgentVaultService(BaseModel):
+    """A service in an Agent Vault access bundle. Its nested settings, such as credential, are left as the API returns them."""
+    id: str
+    accessBundleId: str
+    name: str
+    type: str
+    hostPattern: str
+    serverUrl: Optional[str] = None
+    transport: Optional[str] = None
+    allowedMethods: Optional[List[str]] = None
+    allowedPathPrefixes: Optional[List[str]] = None
+    credential: Optional[Dict[str, Any]] = None
+    customHeaders: Optional[List[Dict[str, Any]]] = None
+    substitutions: Optional[List[Dict[str, Any]]] = None
+    variableReferences: Optional[List[Dict[str, Any]]] = None
+    personalValues: Optional[Dict[str, Any]] = None
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
+
+@dataclass
+class AgentVaultAccessBundle(BaseModel):
+    """Infisical Agent Vault Access Bundle. Only list sets the counts, hostPatterns and servicesRequiringSetup."""
+    id: str
+    name: str
+    description: Optional[str] = None
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
+    serviceCount: Optional[int] = None
+    memberCount: Optional[int] = None
+    hostPatterns: Optional[List[str]] = None
+    servicesRequiringSetup: Optional[List[AgentVaultServiceRef]] = None
+    services: Optional[List[AgentVaultService]] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'AgentVaultAccessBundle':
+        """Create model from dictionary with nested services"""
+        bundle_data = data.copy()
+        if data.get('servicesRequiringSetup') is not None:
+            bundle_data['servicesRequiringSetup'] = [
+                AgentVaultServiceRef.from_dict(service) for service in data['servicesRequiringSetup']
+            ]
+        if data.get('services') is not None:
+            bundle_data['services'] = [AgentVaultService.from_dict(service) for service in data['services']]
+
+        return super().from_dict(bundle_data)
+
+@dataclass
+class SingleAgentVaultAccessBundleResponse(BaseModel):
+    """Response model for get/create/update/delete Agent Vault access bundle API"""
+    accessBundle: AgentVaultAccessBundle
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SingleAgentVaultAccessBundleResponse':
+        return cls(
+            accessBundle=AgentVaultAccessBundle.from_dict(data['accessBundle']),
+        )
+
+@dataclass
+class ListAgentVaultAccessBundlesResponse(BaseModel):
+    """Response model for list Agent Vault access bundles API"""
+    accessBundles: List[AgentVaultAccessBundle]
+    totalCount: int
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ListAgentVaultAccessBundlesResponse':
+        return cls(
+            accessBundles=[AgentVaultAccessBundle.from_dict(bundle) for bundle in data['accessBundles']],
+            totalCount=data['totalCount'],
+        )
+
+@dataclass
+class AgentVaultGrantee(BaseModel):
+    """A user, machine identity or group that an Agent Vault access bundle is granted to"""
+    type: str
+    id: str
+    grantedAt: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    name: Optional[str] = None
+
+@dataclass
+class ListAgentVaultGranteesResponse(BaseModel):
+    """Response model for list Agent Vault access bundle grantees API"""
+    members: List[AgentVaultGrantee]
+    totalCount: int
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ListAgentVaultGranteesResponse':
+        return cls(
+            members=[AgentVaultGrantee.from_dict(member) for member in data['members']],
+            totalCount=data['totalCount'],
+        )
+
+@dataclass
+class AgentVaultGrantChangeResponse(BaseModel):
+    """Response model for grant/revoke Agent Vault access bundle API. Its grantees have only type, id and grantedAt."""
+    members: List[AgentVaultGrantee]
+    skipped: List[AgentVaultGrantee]
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'AgentVaultGrantChangeResponse':
+        return cls(
+            members=[AgentVaultGrantee.from_dict(member) for member in data['members']],
+            skipped=[AgentVaultGrantee.from_dict(member) for member in data['skipped']],
+        )
+
+@dataclass
+class AgentVaultMember(BaseModel):
+    """A user, machine identity or group that's a member of Agent Vault, with its Agent Vault role"""
+    type: str
+    id: str
+    role: Optional[str] = None
+    isActive: Optional[bool] = None
+    addedAt: Optional[str] = None
+    username: Optional[str] = None
+    email: Optional[str] = None
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    isOrgMembershipPending: Optional[bool] = None
+    name: Optional[str] = None
+    isManagedByAgentVault: Optional[bool] = None
+    orgId: Optional[str] = None
+
+@dataclass
+class ListAgentVaultMembersResponse(BaseModel):
+    """Response model for list available Agent Vault grantees and delegation subjects API"""
+    members: List[AgentVaultMember]
+    totalCount: int
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ListAgentVaultMembersResponse':
+        return cls(
+            members=[AgentVaultMember.from_dict(member) for member in data['members']],
+            totalCount=data['totalCount'],
+        )
+
+@dataclass
+class AgentVaultDelegationMachineIdentity(BaseModel):
+    """The machine identity an Agent Vault delegation belongs to"""
+    id: str
+    name: str
+
+@dataclass
+class AgentVaultDelegationUser(BaseModel):
+    """A user in an Agent Vault delegation. missingAccessBundles is only set by get, set, add_subjects and remove_subjects."""
+    id: str
+    username: str
+    addedAt: str
+    email: Optional[str] = None
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    missingAccessBundles: Optional[List[AgentVaultAccessBundleRef]] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'AgentVaultDelegationUser':
+        """Create model from dictionary with nested missing access bundles"""
+        user_data = data.copy()
+        if data.get('missingAccessBundles') is not None:
+            user_data['missingAccessBundles'] = [
+                AgentVaultAccessBundleRef.from_dict(bundle) for bundle in data['missingAccessBundles']
+            ]
+
+        return super().from_dict(user_data)
+
+@dataclass
+class AgentVaultDelegationGroup(BaseModel):
+    """A group in an Agent Vault delegation. missingAccessBundles is only set by get, set, add_subjects and remove_subjects."""
+    id: str
+    name: str
+    addedAt: str
+    missingAccessBundles: Optional[List[AgentVaultAccessBundleRef]] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'AgentVaultDelegationGroup':
+        """Create model from dictionary with nested missing access bundles"""
+        group_data = data.copy()
+        if data.get('missingAccessBundles') is not None:
+            group_data['missingAccessBundles'] = [
+                AgentVaultAccessBundleRef.from_dict(bundle) for bundle in data['missingAccessBundles']
+            ]
+
+        return super().from_dict(group_data)
+
+@dataclass
+class AgentVaultDelegation(BaseModel):
+    """Infisical Agent Vault Delegation: which users a machine identity can create sessions on behalf of"""
+    machineIdentity: AgentVaultDelegationMachineIdentity
+    scope: str
+    users: List[AgentVaultDelegationUser]
+    groups: List[AgentVaultDelegationGroup]
+    createdAt: str
+    updatedAt: str
+    missingAccessBundles: Optional[List[AgentVaultAccessBundleRef]] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'AgentVaultDelegation':
+        """Create model from dictionary with nested machine identity, users, groups and missing access bundles"""
+        delegation_data = data.copy()
+        delegation_data['machineIdentity'] = AgentVaultDelegationMachineIdentity.from_dict(data['machineIdentity'])
+        delegation_data['users'] = [AgentVaultDelegationUser.from_dict(user) for user in data['users']]
+        delegation_data['groups'] = [AgentVaultDelegationGroup.from_dict(group) for group in data['groups']]
+        if data.get('missingAccessBundles') is not None:
+            delegation_data['missingAccessBundles'] = [
+                AgentVaultAccessBundleRef.from_dict(bundle) for bundle in data['missingAccessBundles']
+            ]
+
+        return super().from_dict(delegation_data)
+
+@dataclass
+class SingleAgentVaultDelegationResponse(BaseModel):
+    """Response model for Agent Vault delegation API. delegation is None when remove_subjects ends the delegation."""
+    delegation: Optional[AgentVaultDelegation] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'SingleAgentVaultDelegationResponse':
+        return cls(
+            delegation=AgentVaultDelegation.from_dict(data['delegation']) if data.get('delegation') is not None else None,
+        )
+
+@dataclass
+class ListAgentVaultDelegationsResponse(BaseModel):
+    """Response model for list Agent Vault delegations API"""
+    delegations: List[AgentVaultDelegation]
+    totalCount: int
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'ListAgentVaultDelegationsResponse':
+        return cls(
+            delegations=[AgentVaultDelegation.from_dict(delegation) for delegation in data['delegations']],
             totalCount=data['totalCount'],
         )
