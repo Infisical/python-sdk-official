@@ -293,8 +293,7 @@ class AgentVaultSessions:
         To start a session on behalf of a user, you must be a machine identity whose delegation covers the user. The proxy
         then uses the user's personal values, and the session can use only an access bundle that both the user and your
         machine identity can use. The session still belongs to your machine identity, so the user can't see it unless
-        they're an Agent Vault admin. Infisical versions that don't support sessions on behalf of users ignore
-        on_behalf_of_user_email and on_behalf_of_user_id, and create the session for your machine identity instead.
+        they're an Agent Vault admin.
 
         Args:
             access_bundle: The name of the access bundle the session carries.
