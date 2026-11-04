@@ -499,3 +499,11 @@ def test_access_bundles_grantee_lists_send_the_actor_type_value(api, agent_vault
     assert api.session.get.call_args.kwargs["params"]["actorType"] == "group"
     agent_vault.access_bundles.list_available_grantees(BUNDLE["id"], actor_type="machineIdentity")
     assert api.session.get.call_args.kwargs["params"]["actorType"] == "machineIdentity"
+
+
+def test_api_error_is_exported_from_the_package_root():
+    import infisical_sdk
+    from infisical_sdk.infisical_requests import APIError as RequestsAPIError
+    assert infisical_sdk.APIError is RequestsAPIError
+    assert issubclass(infisical_sdk.APIError, infisical_sdk.InfisicalError)
+
