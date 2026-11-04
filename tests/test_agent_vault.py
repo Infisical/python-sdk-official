@@ -507,3 +507,16 @@ def test_api_error_is_exported_from_the_package_root():
     assert infisical_sdk.APIError is RequestsAPIError
     assert issubclass(infisical_sdk.APIError, infisical_sdk.InfisicalError)
 
+
+@pytest.mark.parametrize("call", [
+    lambda agent_vault: agent_vault.proxies.delete(PROXY["id"]),
+    lambda agent_vault: agent_vault.access_bundles.delete(BUNDLE["id"]),
+    lambda agent_vault: agent_vault.delegations.delete(MACHINE_IDENTITY_ID),
+    lambda agent_vault: agent_vault.delegations.remove_subjects(MACHINE_IDENTITY_ID, user_ids=[ON_BEHALF_OF["id"]]),
+], ids=["proxies.delete", "access_bundles.delete", "delegations.delete", "delegations.remove_subjects"])
+def test_deletes_are_not_retried_once_the_request_may_have_reached_the_server(api, agent_vault, call):
+    # After a lost response, a retry would fail with a 404 for a delete that worked.
+    api.session.delete.side_effect = requests.exceptions.ReadTimeout()
+    with pytest.raises(requests.exceptions.ReadTimeout):
+        call(agent_vault)
+    assert api.session.delete.call_count == 1

@@ -203,7 +203,9 @@ class AgentVaultProxies:
         Returns:
             The deleted proxy. Only id and name are set.
         """
-        result = self.requests.delete(
+        # Not retried once the request may have reached the server: after a lost response, a retry would fail with a
+        # 404 for a delete that worked.
+        result = self.requests.delete_once(
             path=f"/api/v1/agent-vault/proxies/{_segment(proxy_id)}",
             model=SingleAgentVaultProxyResponse
         )
@@ -531,7 +533,9 @@ class AgentVaultAccessBundles:
         Returns:
             The deleted access bundle.
         """
-        result = self.requests.delete(
+        # Not retried once the request may have reached the server: after a lost response, a retry would fail with a
+        # 404 for a delete that worked.
+        result = self.requests.delete_once(
             path=f"/api/v1/agent-vault/access-bundles/{_segment(access_bundle_id)}",
             model=SingleAgentVaultAccessBundleResponse
         )
@@ -764,7 +768,9 @@ class AgentVaultDelegations:
         Returns:
             The deleted delegation. missingAccessBundles isn't set.
         """
-        result = self.requests.delete(
+        # Not retried once the request may have reached the server: after a lost response, a retry would fail with a
+        # 404 for a delete that worked.
+        result = self.requests.delete_once(
             path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}",
             model=SingleAgentVaultDelegationResponse
         )
@@ -819,7 +825,9 @@ class AgentVaultDelegations:
             "groupIds": group_ids,
         }
 
-        result = self.requests.delete(
+        # Not retried once the request may have reached the server: after a lost response, a retry would fail with a
+        # 404 for a delete that worked.
+        result = self.requests.delete_once(
             path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}/subjects",
             json=request_body,
             model=SingleAgentVaultDelegationResponse
