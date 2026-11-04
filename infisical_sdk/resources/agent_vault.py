@@ -756,7 +756,7 @@ class AgentVaultDelegations:
         return result.data.delegation
 
     def delete(self, machine_identity_id: str) -> AgentVaultDelegation:
-        """Stop a machine identity from creating Agent Vault sessions on behalf of users. The sessions it already created on their behalf stop working.
+        """Stop a machine identity from creating Agent Vault sessions on behalf of users. The proxy refuses the sessions it already created on their behalf until a delegation covers those users again, so revoke the sessions to end them for good.
 
         Args:
             machine_identity_id: The ID of the machine identity.
@@ -804,7 +804,7 @@ class AgentVaultDelegations:
             machine_identity_id: str,
             user_ids: Optional[List[str]] = None,
             group_ids: Optional[List[str]] = None) -> Optional[AgentVaultDelegation]:
-        """Take users and groups out of a machine identity's delegation. The sessions it created on behalf of the users you take out stop working, and taking out the last user or group removes the delegation.
+        """Take users and groups out of a machine identity's delegation. The proxy refuses the sessions it created on behalf of the users you take out until the delegation covers them again, so revoke the sessions to end them for good. Taking out the last user or group removes the delegation.
 
         Args:
             machine_identity_id: The ID of the machine identity.
