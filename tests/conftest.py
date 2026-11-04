@@ -22,9 +22,9 @@ def api():
 
 @pytest.fixture
 def json_response():
-    def make(payload):
+    def make(payload, status_code=200):
         response = requests.Response()
-        response.status_code = 200
+        response.status_code = status_code
         response._content = json.dumps(payload).encode()
         return response
     return make

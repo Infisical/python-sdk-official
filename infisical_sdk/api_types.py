@@ -450,9 +450,20 @@ class SingleLeaseResponse(BaseModel):
         )
 
 class AgentVaultTrafficPolicy(str, Enum):
-    """Enum for which hosts an agent may reach through an Agent Vault proxy"""
+    """Enum for which hosts an agent may reach through an Agent Vault proxy.
+
+    BUNDLE_HOSTS is the old name of SERVICE_HOSTS and the same member, so a proxy's traffic policy compares equal to
+    either one, and AgentVaultTrafficPolicy("bundle-hosts") is SERVICE_HOSTS.
+    """
     ANY_HOST = "any-host"
-    BUNDLE_HOSTS = "bundle-hosts"
+    SERVICE_HOSTS = "service-hosts"
+    BUNDLE_HOSTS = "service-hosts"
+
+    @classmethod
+    def _missing_(cls, value):
+        if value == "bundle-hosts":
+            return cls.SERVICE_HOSTS
+        return None
 
 class AgentVaultSessionStatus(str, Enum):
     """Enum for Agent Vault session status"""
@@ -490,6 +501,15 @@ class AgentVaultProxy(BaseModel):
     pollInterval: Optional[int] = None
     createdAt: Optional[str] = None
     description: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> 'AgentVaultProxy':
+        """Create model from dictionary. An Infisical version from before service-hosts was named reports bundle-hosts, which reads as service-hosts."""
+        proxy_data = data.copy()
+        if proxy_data.get('trafficPolicy') == 'bundle-hosts':
+            proxy_data['trafficPolicy'] = AgentVaultTrafficPolicy.SERVICE_HOSTS.value
+
+        return super().from_dict(proxy_data)
 
 @dataclass
 class SingleAgentVaultProxyResponse(BaseModel):
@@ -547,6 +567,21 @@ class AgentVaultSessionAccessBundle(BaseModel):
     id: Optional[str] = None
 
 @dataclass
+class AgentVaultInlineService(BaseModel):
+    """A service sent with an Agent Vault session, without its token, password or values. Its nested settings, such as credential, are left as the API returns them."""
+    id: str
+    name: str
+    type: str
+    hostPattern: str
+    serverUrl: Optional[str] = None
+    transport: Optional[str] = None
+    allowedMethods: Optional[List[str]] = None
+    allowedPathPrefixes: Optional[List[str]] = None
+    credential: Optional[Dict[str, Any]] = None
+    customHeaders: Optional[List[Dict[str, Any]]] = None
+    substitutions: Optional[List[Dict[str, Any]]] = None
+
+@dataclass
 class AgentVaultSession(BaseModel):
     """Infisical Agent Vault Session"""
     id: str
@@ -558,10 +593,11 @@ class AgentVaultSession(BaseModel):
     revokedAt: Optional[str] = None
     accessBundles: Optional[List[AgentVaultSessionAccessBundle]] = None
     onBehalfOf: Optional[AgentVaultSessionActor] = None
+    services: Optional[List[AgentVaultInlineService]] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'AgentVaultSession':
-        """Create model from dictionary with nested actor, on-behalf-of user and access bundles. accessBundles is None if the response leaves it out."""
+        """Create model from dictionary with nested actor, on-behalf-of user, access bundles and inline services. accessBundles and services are None if the response leaves them out."""
         session_data = data.copy()
         if data.get('actor') is not None:
             session_data['actor'] = AgentVaultSessionActor.from_dict(data['actor'])
@@ -571,6 +607,8 @@ class AgentVaultSession(BaseModel):
             session_data['accessBundles'] = [
                 AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data['accessBundles']
             ]
+        if data.get('services') is not None:
+            session_data['services'] = [AgentVaultInlineService.from_dict(service) for service in data['services']]
 
         return super().from_dict(session_data)
 
@@ -583,13 +621,17 @@ class CreatedAgentVaultSession(BaseModel):
     label: Optional[str] = None
     expiresAt: Optional[str] = None
     accessBundles: List[AgentVaultSessionAccessBundle] = field(default_factory=list)
+    services: List[AgentVaultInlineService] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'CreatedAgentVaultSession':
-        """Create model from dictionary with nested access bundles"""
+        """Create model from dictionary with nested access bundles and inline services"""
         session_data = data.copy()
         session_data['accessBundles'] = [
             AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data.get('accessBundles', [])
+        ]
+        session_data['services'] = [
+            AgentVaultInlineService.from_dict(service) for service in data.get('services', [])
         ]
 
         return super().from_dict(session_data)
@@ -660,6 +702,7 @@ class AgentVaultService(BaseModel):
     personalValues: Optional[Dict[str, Any]] = None
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None
+    allowedTools: Optional[List[str]] = None
 
 @dataclass
 class AgentVaultAccessBundle(BaseModel):
@@ -723,6 +766,7 @@ class AgentVaultGrantee(BaseModel):
     firstName: Optional[str] = None
     lastName: Optional[str] = None
     name: Optional[str] = None
+    isOrgMembershipPending: Optional[bool] = None
 
 @dataclass
 class ListAgentVaultGranteesResponse(BaseModel):

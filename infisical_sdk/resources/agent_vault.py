@@ -1,4 +1,4 @@
-from typing import Optional, List, Union
+from typing import Any, Dict, Optional, List, Union
 
 from infisical_sdk.infisical_requests import InfisicalRequests
 from infisical_sdk.api_types import (
@@ -42,6 +42,21 @@ def _query_bool(value: Optional[bool]) -> Optional[str]:
     if value is None:
         return None
     return "true" if value else "false"
+
+
+def _wire_traffic_policy(traffic_policy: Optional[Union[AgentVaultTrafficPolicy, str]]) -> Optional[str]:
+    """Infisical stores service-hosts under its old name, bundle-hosts, and still accepts that name, while a version
+    from before the rename accepts only bundle-hosts. So either name goes out as bundle-hosts, which every version takes."""
+    if isinstance(traffic_policy, AgentVaultTrafficPolicy):
+        traffic_policy = traffic_policy.value
+    return "bundle-hosts" if traffic_policy == AgentVaultTrafficPolicy.SERVICE_HOSTS.value else traffic_policy
+
+
+def _with_services(session: AgentVaultSession) -> AgentVaultSession:
+    """A session from an Infisical version without inline services has none, so it gets an empty list rather than None."""
+    if session.services is None:
+        session.services = []
+    return session
 
 
 def _check_one_user(on_behalf_of_user_email: Optional[str], on_behalf_of_user_id: Optional[str]) -> None:
@@ -102,8 +117,8 @@ class AgentVaultProxies:
 
         Args:
             name: The name of the proxy (a slug, at most 64 characters).
-            traffic_policy: Which hosts an agent may reach through this proxy. Defaults to "any-host".
-            allowed_hosts: Hosts that stay reachable under the "bundle-hosts" traffic policy even though no access bundle covers them. A list or a comma-separated string.
+            traffic_policy: Which hosts an agent may reach through this proxy: AgentVaultTrafficPolicy.ANY_HOST ("any-host"), or AgentVaultTrafficPolicy.SERVICE_HOSTS ("service-hosts") for only the hosts that the session's services cover. Defaults to "any-host". The old name of SERVICE_HOSTS, BUNDLE_HOSTS ("bundle-hosts"), works the same.
+            allowed_hosts: Hosts that stay reachable under the "service-hosts" traffic policy even though none of the session's services cover them. A list or a comma-separated string.
             poll_interval: How often, in seconds, the proxy refreshes its sessions and settings (10-300). Defaults to 60.
             description: What the proxy is for, up to 256 characters, without line breaks or other control characters.
 
@@ -112,7 +127,7 @@ class AgentVaultProxies:
         """
         request_body = {
             "name": name,
-            "trafficPolicy": traffic_policy.value if isinstance(traffic_policy, AgentVaultTrafficPolicy) else traffic_policy,
+            "trafficPolicy": _wire_traffic_policy(traffic_policy),
             "allowedHosts": _join_hosts(allowed_hosts),
             "pollInterval": poll_interval,
             "description": description,
@@ -139,24 +154,21 @@ class AgentVaultProxies:
         Args:
             proxy_id: The ID of the proxy to update.
             name: The new name of the proxy.
-            traffic_policy: Which hosts an agent may reach through this proxy.
-            allowed_hosts: Hosts that stay reachable under the "bundle-hosts" traffic policy. A list or a comma-separated string. Pass an empty list or string to remove every allowed host.
+            traffic_policy: Which hosts an agent may reach through this proxy: AgentVaultTrafficPolicy.ANY_HOST ("any-host"), or AgentVaultTrafficPolicy.SERVICE_HOSTS ("service-hosts") for only the hosts that the session's services cover. The old name of SERVICE_HOSTS, BUNDLE_HOSTS ("bundle-hosts"), works the same.
+            allowed_hosts: Hosts that stay reachable under the "service-hosts" traffic policy. A list or a comma-separated string. Pass an empty list or string to remove every allowed host.
             poll_interval: How often, in seconds, the proxy refreshes its sessions and settings (10-300).
             description: The new description, up to 256 characters, without line breaks or other control characters. Pass an empty string to remove the description.
 
         Returns:
             The updated proxy.
         """
-        if isinstance(traffic_policy, AgentVaultTrafficPolicy):
-            traffic_policy = traffic_policy.value
-
         hosts = _join_hosts(allowed_hosts)
         # An empty value removes every allowed host, which the API takes as null.
         remove_hosts = allowed_hosts is not None and hosts is None
 
         request_body = {
             "name": name,
-            "trafficPolicy": traffic_policy,
+            "trafficPolicy": _wire_traffic_policy(traffic_policy),
             "allowedHosts": hosts,
             "pollInterval": poll_interval,
             "description": description,
@@ -263,6 +275,8 @@ class AgentVaultSessions:
             model=ListAgentVaultSessionsResponse
         )
 
+        for session in result.data.sessions:
+            _with_services(session)
         return result.data
 
     def get(self, session_id: str) -> AgentVaultSession:
@@ -279,16 +293,20 @@ class AgentVaultSessions:
             model=SingleAgentVaultSessionResponse
         )
 
-        return result.data.session
+        return _with_services(result.data.session)
 
     def create(
             self,
-            access_bundle: str,
+            access_bundle: Optional[str] = None,
             ttl: Optional[str] = None,
             label: Optional[str] = None,
             on_behalf_of_user_email: Optional[str] = None,
-            on_behalf_of_user_id: Optional[str] = None) -> CreatedAgentVaultSession:
-        """Create an Agent Vault session with an access bundle you can reach, or, as a machine identity with a delegation, on behalf of a user.
+            on_behalf_of_user_id: Optional[str] = None,
+            services: Optional[List[Dict[str, Any]]] = None) -> CreatedAgentVaultSession:
+        """Create an Agent Vault session with an access bundle you can reach, services of its own, or both, for yourself or, as a machine identity with a delegation, on behalf of a user.
+
+        Only Agent Vault admins can send services with a session. On behalf of a user, that's your machine identity:
+        the user doesn't need the Admin role, and the services don't use the user's personal values.
 
         To start a session on behalf of a user, you must be a machine identity whose delegation covers the user. The proxy
         then uses the user's personal values, and the session can use only an access bundle that both the user and your
@@ -296,14 +314,15 @@ class AgentVaultSessions:
         they're an Agent Vault admin.
 
         Args:
-            access_bundle: The name of the access bundle the session carries.
+            access_bundle: The name of the access bundle the session carries. Pass access_bundle, services, or both.
             ttl: How long the session lasts: a duration such as "30m", "8h" or "7d" (at least 1m), or "never". Defaults to "7d", or to "1h" for a session on behalf of a user.
             label: A short description of what the session is for, such as "nightly deploy". Up to 128 characters, without line breaks, tabs, or invisible characters.
             on_behalf_of_user_email: The email address of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_id.
             on_behalf_of_user_id: The ID of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_email.
+            services: Services the session carries itself, instead of or beside its access bundle's: up to 20 dicts with the API's field names, such as {"type": "http", "hostPattern": "api.github.com", "credential": {"type": "bearer", "value": token}}. Only Agent Vault admins can send them. Each has the same fields as a service in an access bundle, except that its name is optional, its values can't use variables, and it can't use OAuth or member-provided values.
 
         Returns:
-            The created session, including its token. The token is only returned once.
+            The created session, including its token. The token is only returned once. Its services leave out their tokens, passwords and values.
         """
         _check_one_user(on_behalf_of_user_email, on_behalf_of_user_id)
 
@@ -314,7 +333,9 @@ class AgentVaultSessions:
             on_behalf_of = {"userId": on_behalf_of_user_id}
 
         request_body = {
-            "accessBundles": [access_bundle],
+            # Left out without an access bundle, for a session that carries only services of its own.
+            "accessBundles": [access_bundle] if access_bundle is not None else None,
+            "services": services,
             "ttl": ttl,
             "label": label,
             "onBehalfOf": on_behalf_of,
@@ -349,7 +370,7 @@ class AgentVaultSessions:
             nullable_keys=["label"]
         )
 
-        return result.data.session
+        return _with_services(result.data.session)
 
     def revoke(self, session_id: str) -> AgentVaultSession:
         """Revoke an Agent Vault session. Revoking an already revoked session is a no-op.
@@ -358,7 +379,7 @@ class AgentVaultSessions:
             session_id: The ID of the session to revoke.
 
         Returns:
-            The revoked session. Its accessBundles is None, because the response leaves the bundles out; call get for them.
+            The revoked session. Its accessBundles and services are None, because the response leaves them out; call get for them.
         """
         result = self.requests.post(
             path=f"/api/v1/agent-vault/sessions/{session_id}/revoke",

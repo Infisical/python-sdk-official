@@ -1,7 +1,14 @@
 import pytest
 import requests
 
-from infisical_sdk.api_types import AgentVaultDelegationScope, AgentVaultMemberType, AgentVaultSessionActor
+from infisical_sdk.api_types import (
+    AgentVaultDelegationScope,
+    AgentVaultInlineService,
+    AgentVaultMemberType,
+    AgentVaultSessionActor,
+    AgentVaultTrafficPolicy,
+)
+from infisical_sdk.infisical_requests import APIError
 from infisical_sdk.resources.agent_vault import AgentVault
 
 PROXY = {"id": "a2b5e0d1-6f3e-4c55-9a43-3f0c1f0a2b7e", "name": "edge-proxy"}
@@ -11,6 +18,7 @@ SESSION = {
     "status": "active",
     "createdAt": "2026-10-27T00:00:00.000Z",
     "accessBundles": [],
+    "services": [],
 }
 ON_BEHALF_OF = {
     "type": "user",
@@ -26,6 +34,27 @@ BUNDLE = {
     "description": None,
     "createdAt": "2026-10-27T00:00:00.000Z",
     "updatedAt": "2026-10-27T00:00:00.000Z",
+}
+INLINE_SERVICE_INPUT = {
+    "type": "http",
+    "name": "github",
+    "hostPattern": "api.github.com",
+    "allowedMethods": ["GET"],
+    "credential": {"type": "bearer", "value": "github-token"},
+    "customHeaders": [{"name": "X-Team", "value": "platform"}],
+}
+INLINE_SERVICE = {
+    "id": "8e2f4a6c-1b3d-4e5f-9a7b-2c4d6e8f0a1b",
+    "name": "github",
+    "type": "http",
+    "serverUrl": None,
+    "transport": None,
+    "hostPattern": "api.github.com",
+    "allowedMethods": ["GET"],
+    "allowedPathPrefixes": None,
+    "credential": {"type": "bearer", "headerName": "Authorization", "headerPrefix": "Bearer"},
+    "customHeaders": [{"name": "X-Team", "prefix": ""}],
+    "substitutions": [],
 }
 MACHINE_IDENTITY_ID = "9c4b2a1d-3e5f-4a6b-8c7d-2e1f0a9b8c7d"
 GROUP_ID = "7b1e4f2a-9c3d-4a6b-8e5f-1d2c3b4a5e6f"
@@ -112,10 +141,11 @@ def test_proxies_rotate_token_is_not_retried_once_the_request_may_have_reached_t
     assert api.session.post.call_count == 1
 
 
-def test_sessions_revoke_leaves_access_bundles_unset_when_the_response_omits_them(api, agent_vault, json_response):
-    revoked = {key: value for key, value in SESSION.items() if key != "accessBundles"}
+def test_sessions_revoke_leaves_access_bundles_and_services_unset_when_the_response_omits_them(api, agent_vault, json_response):
+    revoked = {key: value for key, value in SESSION.items() if key not in ("accessBundles", "services")}
     api.session.post.return_value = json_response({"session": dict(revoked, status="revoked")})
-    assert agent_vault.sessions.revoke(SESSION["id"]).accessBundles is None
+    session = agent_vault.sessions.revoke(SESSION["id"])
+    assert (session.accessBundles, session.services) == (None, None)
 
 
 def test_sessions_get_keeps_an_empty_access_bundles_list(api, agent_vault, json_response):
@@ -138,6 +168,12 @@ def test_sessions_create_names_the_user_it_acts_for(api, agent_vault, json_respo
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
     agent_vault.sessions.create(access_bundle="release", **kwargs)
     assert api.session.post.call_args.kwargs["json"] == {"accessBundles": ["release"], "onBehalfOf": on_behalf_of}
+
+
+def test_sessions_create_still_takes_the_access_bundle_first(api, agent_vault, json_response):
+    api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
+    agent_vault.sessions.create("release", "1h")
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": ["release"], "ttl": "1h"}
 
 
 def test_sessions_create_rejects_both_a_user_email_and_a_user_id(api, agent_vault):
@@ -250,3 +286,149 @@ def test_delegations_list_available_subjects_sends_the_actor_type_value(api, age
     api.session.get.return_value = json_response({"members": [], "totalCount": 0})
     agent_vault.delegations.list_available_subjects(MACHINE_IDENTITY_ID, actor_type=AgentVaultMemberType.GROUP)
     assert api.session.get.call_args.kwargs["params"]["actorType"] == "group"
+
+
+@pytest.mark.parametrize("traffic_policy", [
+    AgentVaultTrafficPolicy.SERVICE_HOSTS, AgentVaultTrafficPolicy.BUNDLE_HOSTS, "service-hosts", "bundle-hosts",
+], ids=["SERVICE_HOSTS", "BUNDLE_HOSTS", "service-hosts", "bundle-hosts"])
+def test_proxies_send_either_name_of_service_hosts_as_bundle_hosts_which_every_version_takes(
+        api, agent_vault, json_response, traffic_policy):
+    api.session.post.return_value = json_response({"proxy": PROXY, "proxyToken": "token"})
+    api.session.patch.return_value = json_response({"proxy": PROXY})
+    agent_vault.proxies.create(name="edge-proxy", traffic_policy=traffic_policy)
+    agent_vault.proxies.update(PROXY["id"], traffic_policy=traffic_policy)
+    assert api.session.post.call_args.kwargs["json"]["trafficPolicy"] == "bundle-hosts"
+    assert api.session.patch.call_args.kwargs["json"] == {"trafficPolicy": "bundle-hosts"}
+
+
+@pytest.mark.parametrize("kwargs", [{}, {"traffic_policy": AgentVaultTrafficPolicy.ANY_HOST}, {"traffic_policy": "any-host"}],
+                         ids=["default", "ANY_HOST", "any-host"])
+def test_proxies_create_sends_any_host_as_it_is(api, agent_vault, json_response, kwargs):
+    api.session.post.return_value = json_response({"proxy": PROXY, "proxyToken": "token"})
+    agent_vault.proxies.create(name="edge-proxy", **kwargs)
+    assert api.session.post.call_args.kwargs["json"]["trafficPolicy"] == "any-host"
+
+
+@pytest.mark.parametrize("reported", ["service-hosts", "bundle-hosts"], ids=["current version", "version before the rename"])
+@pytest.mark.parametrize("verb, payload, call", [
+    ("get", lambda proxy: {"proxies": [proxy], "totalCount": 1}, lambda agent_vault: agent_vault.proxies.list().proxies[0]),
+    ("post", lambda proxy: {"proxy": proxy, "proxyToken": "token"},
+     lambda agent_vault: agent_vault.proxies.create(name="edge-proxy").proxy),
+    ("patch", lambda proxy: {"proxy": proxy}, lambda agent_vault: agent_vault.proxies.update(PROXY["id"], poll_interval=30)),
+    ("post", lambda proxy: {"proxy": proxy, "proxyToken": "token"},
+     lambda agent_vault: agent_vault.proxies.rotate_token(PROXY["id"]).proxy),
+    ("post", lambda proxy: {"proxy": proxy}, lambda agent_vault: agent_vault.proxies.revoke(PROXY["id"])),
+], ids=["list", "create", "update", "rotate_token", "revoke"])
+def test_proxies_report_either_name_as_service_hosts(api, agent_vault, json_response, reported, verb, payload, call):
+    getattr(api.session, verb).return_value = json_response(payload(dict(PROXY, trafficPolicy=reported)))
+    proxy = call(agent_vault)
+    assert proxy.trafficPolicy == "service-hosts"
+    assert proxy.trafficPolicy == AgentVaultTrafficPolicy.SERVICE_HOSTS
+    assert proxy.trafficPolicy == AgentVaultTrafficPolicy.BUNDLE_HOSTS
+
+
+def test_proxies_list_leaves_the_traffic_policy_unset_for_a_member(api, agent_vault, json_response):
+    api.session.get.return_value = json_response({"proxies": [PROXY], "totalCount": 1})
+    assert agent_vault.proxies.list().proxies[0].trafficPolicy is None
+
+
+def test_traffic_policy_old_name_is_the_same_member():
+    assert AgentVaultTrafficPolicy.BUNDLE_HOSTS is AgentVaultTrafficPolicy.SERVICE_HOSTS
+    assert AgentVaultTrafficPolicy("bundle-hosts") is AgentVaultTrafficPolicy.SERVICE_HOSTS
+    assert AgentVaultTrafficPolicy("service-hosts") is AgentVaultTrafficPolicy.SERVICE_HOSTS
+    assert list(AgentVaultTrafficPolicy) == [AgentVaultTrafficPolicy.ANY_HOST, AgentVaultTrafficPolicy.SERVICE_HOSTS]
+    with pytest.raises(ValueError):
+        AgentVaultTrafficPolicy("all-hosts")
+
+
+def test_sessions_create_sends_services_without_an_access_bundle(api, agent_vault, json_response):
+    api.session.post.return_value = json_response({"session": dict(SESSION, token="token", services=[INLINE_SERVICE])})
+    agent_vault.sessions.create(services=[INLINE_SERVICE_INPUT])
+    assert api.session.post.call_args.kwargs["json"] == {"services": [INLINE_SERVICE_INPUT]}
+
+
+def test_sessions_create_sends_an_access_bundle_and_services_together(api, agent_vault, json_response):
+    api.session.post.return_value = json_response({"session": dict(SESSION, token="token", services=[INLINE_SERVICE])})
+    agent_vault.sessions.create(access_bundle="release", services=[INLINE_SERVICE_INPUT])
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": ["release"], "services": [INLINE_SERVICE_INPUT]}
+
+
+def test_sessions_create_sends_an_empty_access_bundle_name_so_the_server_rejects_it(api, agent_vault, json_response):
+    api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
+    agent_vault.sessions.create(access_bundle="")
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": [""]}
+
+
+def test_sessions_read_services_as_the_api_sends_them(api, agent_vault, json_response):
+    session = dict(SESSION, services=[INLINE_SERVICE])
+    api.session.post.return_value = json_response({"session": dict(session, token="token")})
+    api.session.get.side_effect = [
+        json_response({"session": session}),
+        json_response({"sessions": [session], "totalCount": 1}),
+    ]
+    expected = [AgentVaultInlineService(**INLINE_SERVICE)]
+    assert agent_vault.sessions.create(services=[INLINE_SERVICE_INPUT]).services == expected
+    assert agent_vault.sessions.get(SESSION["id"]).services == expected
+    assert agent_vault.sessions.list().sessions[0].services == expected
+
+
+def test_sessions_from_an_infisical_version_without_inline_services_have_an_empty_list_of_them(
+        api, agent_vault, json_response):
+    older = {key: value for key, value in SESSION.items() if key != "services"}
+    api.session.post.return_value = json_response({"session": dict(older, token="token")})
+    api.session.patch.return_value = json_response({"session": older})
+    api.session.get.side_effect = [
+        json_response({"session": older}),
+        json_response({"sessions": [older], "totalCount": 1}),
+    ]
+    assert agent_vault.sessions.create(access_bundle="release").services == []
+    assert agent_vault.sessions.update(SESSION["id"], None).services == []
+    assert agent_vault.sessions.get(SESSION["id"]).services == []
+    assert agent_vault.sessions.list().sessions[0].services == []
+
+
+@pytest.mark.parametrize("status_code, payload, explanation", [
+    (422, {
+        "reqId": "req-1",
+        "statusCode": 422,
+        "message": [{
+            "code": "too_big",
+            "maximum": 20,
+            "path": ["services"],
+            "message": "A session can have at most 20 services. Add the others to an access bundle and name it in accessBundles.",
+        }],
+        "error": "ValidationFailure",
+    }, "at most 20 services"),
+    (403, {
+        "statusCode": 403,
+        "message": "Only an Agent Vault admin can send services with a session. Name an access bundle instead.",
+        "error": "PermissionDenied",
+    }, "Only an Agent Vault admin can send services with a session"),
+], ids=["validation error", "refusal"])
+def test_sessions_create_keeps_the_servers_explanation_when_it_refuses_services(
+        api, agent_vault, json_response, status_code, payload, explanation):
+    api.session.post.return_value = json_response(payload, status_code)
+    with pytest.raises(APIError) as raised:
+        agent_vault.sessions.create(services=[INLINE_SERVICE_INPUT])
+    assert raised.value.status_code == status_code
+    assert explanation in str(raised.value)
+    assert api.session.post.call_count == 1
+
+
+def test_access_bundles_get_reads_the_tools_an_mcp_service_allows(api, agent_vault, json_response):
+    service = {
+        "id": SERVICE_ID, "accessBundleId": BUNDLE["id"], "name": "linear", "type": "mcp",
+        "serverUrl": "https://mcp.linear.app/mcp", "transport": "streamable-http", "hostPattern": "mcp.linear.app",
+        "allowedMethods": None, "allowedPathPrefixes": None, "allowedTools": ["list_issues"],
+        "credential": {"type": "bearer", "memberProvidedFields": []}, "customHeaders": [], "substitutions": [],
+        "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
+    }
+    api.session.get.return_value = json_response({"accessBundle": dict(BUNDLE, services=[service])})
+    assert agent_vault.access_bundles.get(BUNDLE["id"]).services[0].allowedTools == ["list_issues"]
+
+
+def test_access_bundles_list_grantees_reads_a_pending_organization_membership(api, agent_vault, json_response):
+    grantee = dict({key: ON_BEHALF_OF[key] for key in ("type", "id", "username", "email", "firstName", "lastName")},
+                   isOrgMembershipPending=True, grantedAt="2026-10-27T00:00:00.000Z")
+    api.session.get.return_value = json_response({"members": [grantee], "totalCount": 1})
+    assert agent_vault.access_bundles.list_grantees(BUNDLE["id"]).members[0].isOrgMembershipPending is True
