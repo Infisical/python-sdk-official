@@ -319,7 +319,7 @@ class AgentVaultSessions:
             label: A short description of what the session is for, such as "nightly deploy". Up to 128 characters, without line breaks, tabs, or invisible characters.
             on_behalf_of_user_email: The email address of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_id.
             on_behalf_of_user_id: The ID of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_email.
-            services: Services the session carries itself, instead of or beside its access bundle's: up to 20 dicts with the API's field names, such as {"type": "http", "hostPattern": "api.github.com", "credential": {"type": "bearer", "value": token}}. Only Agent Vault admins can send them. Each has the same fields as a service in an access bundle, except that its name is optional, its values can't use variables, and it can't use OAuth or member-provided values.
+            services: Services the session carries itself, instead of or beside its access bundle's: up to 20 dicts with the API's field names, such as {"type": "http", "hostPattern": "api.github.com", "credential": {"type": "bearer", "value": token}}. Only Agent Vault admins can send them. Each has the same fields as a service in an access bundle, except that its name is optional, its values can't use variables, it can't use OAuth or member-provided values, and an MCP server can't be limited to some of its tools. To limit an MCP server's tools, add it to an access bundle instead.
 
         Returns:
             The created session, including its token. The token is only returned once. Its services leave out their tokens, passwords and values.
