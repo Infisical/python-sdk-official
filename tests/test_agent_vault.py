@@ -432,3 +432,55 @@ def test_access_bundles_list_grantees_reads_a_pending_organization_membership(ap
                    isOrgMembershipPending=True, grantedAt="2026-10-27T00:00:00.000Z")
     api.session.get.return_value = json_response({"members": [grantee], "totalCount": 1})
     assert agent_vault.access_bundles.list_grantees(BUNDLE["id"]).members[0].isOrgMembershipPending is True
+
+
+@pytest.mark.parametrize("bad_id", ["", ".", "..", None], ids=["empty", "dot", "dot dot", "None"])
+def test_ids_that_would_reach_another_route_are_refused_before_any_request(api, agent_vault, bad_id):
+    # The URL would resolve ".." like a directory, so revoke("..") would reach the route that removes members from
+    # Agent Vault, which takes the same body.
+    with pytest.raises(ValueError, match="Invalid ID"):
+        agent_vault.access_bundles.revoke(bad_id, user_ids=[ON_BEHALF_OF["id"]])
+    with pytest.raises(ValueError, match="Invalid ID"):
+        agent_vault.sessions.get(bad_id)
+    api.session.delete.assert_not_called()
+    api.session.get.assert_not_called()
+
+
+@pytest.mark.parametrize("raw_id, segment", [
+    ("a/../..", "a%2F..%2F.."),
+    ("%2e%2e", "%252e%252e"),
+], ids=["slashes", "encoded dots"])
+def test_ids_are_sent_as_one_path_segment(api, agent_vault, json_response, raw_id, segment):
+    api.session.get.return_value = json_response({"session": SESSION})
+    agent_vault.sessions.get(raw_id)
+    url = api.session.get.call_args.args[0]
+    # The path that requests sends, after it normalizes the URL.
+    assert requests.Request("GET", url).prepare().path_url == f"/api/v1/agent-vault/sessions/{segment}"
+
+
+@pytest.mark.parametrize("verb, call", [
+    ("post", lambda agent_vault: agent_vault.access_bundles.grant(BUNDLE["id"], user_ids=[ON_BEHALF_OF["id"]])),
+    ("delete", lambda agent_vault: agent_vault.access_bundles.revoke(BUNDLE["id"], user_ids=[ON_BEHALF_OF["id"]])),
+], ids=["grant", "revoke"])
+def test_grant_and_revoke_are_not_retried_once_the_request_may_have_reached_the_server(api, agent_vault, verb, call):
+    # After a lost response, a retry would report each grantee as skipped.
+    getattr(api.session, verb).side_effect = requests.exceptions.ReadTimeout()
+    with pytest.raises(requests.exceptions.ReadTimeout):
+        call(agent_vault)
+    assert getattr(api.session, verb).call_count == 1
+
+
+def test_revoke_is_retried_when_the_connection_never_opened(api, agent_vault, json_response):
+    change = {"members": [{"type": "user", "id": ON_BEHALF_OF["id"]}], "skipped": []}
+    api.session.delete.side_effect = [requests.exceptions.ConnectTimeout(), json_response(change)]
+    revoked = agent_vault.access_bundles.revoke(BUNDLE["id"], user_ids=[ON_BEHALF_OF["id"]])
+    assert [member.id for member in revoked.members] == [ON_BEHALF_OF["id"]]
+    assert api.session.delete.call_count == 2
+
+
+def test_access_bundles_grantee_lists_send_the_actor_type_value(api, agent_vault, json_response):
+    api.session.get.return_value = json_response({"members": [], "totalCount": 0})
+    agent_vault.access_bundles.list_grantees(BUNDLE["id"], actor_type=AgentVaultMemberType.GROUP)
+    assert api.session.get.call_args.kwargs["params"]["actorType"] == "group"
+    agent_vault.access_bundles.list_available_grantees(BUNDLE["id"], actor_type="machineIdentity")
+    assert api.session.get.call_args.kwargs["params"]["actorType"] == "machineIdentity"

@@ -1,4 +1,5 @@
 from typing import Any, Dict, Optional, List, Union
+from urllib.parse import quote
 
 from infisical_sdk.infisical_requests import InfisicalRequests
 from infisical_sdk.api_types import (
@@ -26,6 +27,16 @@ from infisical_sdk.api_types import (
     SingleAgentVaultProxyResponse,
     SingleAgentVaultSessionResponse,
 )
+
+
+def _segment(identifier: Any) -> str:
+    """Encodes an ID as one path segment. The URL would resolve "." and ".." like directories, so a revoke with ".."
+    would reach the route that removes members from Agent Vault, which takes the same body. An empty ID would reach a
+    route that isn't the one meant either, so all three are refused before any request."""
+    value = "" if identifier is None else str(identifier)
+    if value in ("", ".", ".."):
+        raise ValueError(f'Invalid ID {value!r}: an ID can\'t be empty, "." or ".."')
+    return quote(value, safe="")
 
 
 def _join_hosts(allowed_hosts: Optional[Union[str, List[str]]]) -> Optional[str]:
@@ -175,7 +186,7 @@ class AgentVaultProxies:
         }
 
         result = self.requests.patch(
-            path=f"/api/v1/agent-vault/proxies/{proxy_id}",
+            path=f"/api/v1/agent-vault/proxies/{_segment(proxy_id)}",
             json=request_body,
             model=SingleAgentVaultProxyResponse,
             nullable_keys=["allowedHosts"] if remove_hosts else None
@@ -193,7 +204,7 @@ class AgentVaultProxies:
             The deleted proxy. Only id and name are set.
         """
         result = self.requests.delete(
-            path=f"/api/v1/agent-vault/proxies/{proxy_id}",
+            path=f"/api/v1/agent-vault/proxies/{_segment(proxy_id)}",
             model=SingleAgentVaultProxyResponse
         )
 
@@ -209,7 +220,7 @@ class AgentVaultProxies:
             AgentVaultProxyWithTokenResponse containing the proxy and its new proxyToken. The token is only returned once.
         """
         result = self.requests.post_once(
-            path=f"/api/v1/agent-vault/proxies/{proxy_id}/token-auth/proxy-token",
+            path=f"/api/v1/agent-vault/proxies/{_segment(proxy_id)}/token-auth/proxy-token",
             model=AgentVaultProxyWithTokenResponse
         )
 
@@ -225,7 +236,7 @@ class AgentVaultProxies:
             The revoked proxy.
         """
         result = self.requests.post(
-            path=f"/api/v1/agent-vault/proxies/{proxy_id}/revoke",
+            path=f"/api/v1/agent-vault/proxies/{_segment(proxy_id)}/revoke",
             model=SingleAgentVaultProxyResponse
         )
 
@@ -289,7 +300,7 @@ class AgentVaultSessions:
             The session.
         """
         result = self.requests.get(
-            path=f"/api/v1/agent-vault/sessions/{session_id}",
+            path=f"/api/v1/agent-vault/sessions/{_segment(session_id)}",
             model=SingleAgentVaultSessionResponse
         )
 
@@ -364,7 +375,7 @@ class AgentVaultSessions:
         }
 
         result = self.requests.patch(
-            path=f"/api/v1/agent-vault/sessions/{session_id}",
+            path=f"/api/v1/agent-vault/sessions/{_segment(session_id)}",
             json=request_body,
             model=SingleAgentVaultSessionResponse,
             nullable_keys=["label"]
@@ -382,7 +393,7 @@ class AgentVaultSessions:
             The revoked session. Its accessBundles and services are None, because the response leaves them out; call get for them.
         """
         result = self.requests.post(
-            path=f"/api/v1/agent-vault/sessions/{session_id}/revoke",
+            path=f"/api/v1/agent-vault/sessions/{_segment(session_id)}/revoke",
             model=SingleAgentVaultSessionResponse
         )
 
@@ -454,7 +465,7 @@ class AgentVaultAccessBundles:
             The access bundle, with its services in services. A service's variableReferences is only set for admins.
         """
         result = self.requests.get(
-            path=f"/api/v1/agent-vault/access-bundles/{access_bundle_id}",
+            path=f"/api/v1/agent-vault/access-bundles/{_segment(access_bundle_id)}",
             model=SingleAgentVaultAccessBundleResponse
         )
 
@@ -504,7 +515,7 @@ class AgentVaultAccessBundles:
         }
 
         result = self.requests.patch(
-            path=f"/api/v1/agent-vault/access-bundles/{access_bundle_id}",
+            path=f"/api/v1/agent-vault/access-bundles/{_segment(access_bundle_id)}",
             json=request_body,
             model=SingleAgentVaultAccessBundleResponse
         )
@@ -521,7 +532,7 @@ class AgentVaultAccessBundles:
             The deleted access bundle.
         """
         result = self.requests.delete(
-            path=f"/api/v1/agent-vault/access-bundles/{access_bundle_id}",
+            path=f"/api/v1/agent-vault/access-bundles/{_segment(access_bundle_id)}",
             model=SingleAgentVaultAccessBundleResponse
         )
 
@@ -530,6 +541,7 @@ class AgentVaultAccessBundles:
     def list_grantees(
             self,
             access_bundle_id: str,
+            actor_type: Optional[Union[AgentVaultMemberType, str]] = None,
             search: Optional[str] = None,
             limit: int = 20,
             offset: int = 0) -> ListAgentVaultGranteesResponse:
@@ -537,6 +549,7 @@ class AgentVaultAccessBundles:
 
         Args:
             access_bundle_id: The ID of the access bundle.
+            actor_type: List only users (AgentVaultMemberType.USER), only machine identities (AgentVaultMemberType.MACHINE_IDENTITY), or only groups (AgentVaultMemberType.GROUP). Defaults to all three.
             search: Match grantees by name, username or email address.
             limit: The maximum number of grantees to return (1-100). Defaults to 20.
             offset: How many grantees to skip. Defaults to 0.
@@ -545,13 +558,14 @@ class AgentVaultAccessBundles:
             ListAgentVaultGranteesResponse containing the grantees in members, and totalCount.
         """
         params = {
+            "actorType": actor_type.value if isinstance(actor_type, AgentVaultMemberType) else actor_type,
             "search": search,
             "limit": limit,
             "offset": offset,
         }
 
         result = self.requests.get(
-            path=f"/api/v1/agent-vault/access-bundles/{access_bundle_id}/members",
+            path=f"/api/v1/agent-vault/access-bundles/{_segment(access_bundle_id)}/members",
             params=params,
             model=ListAgentVaultGranteesResponse
         )
@@ -561,6 +575,7 @@ class AgentVaultAccessBundles:
     def list_available_grantees(
             self,
             access_bundle_id: str,
+            actor_type: Optional[Union[AgentVaultMemberType, str]] = None,
             search: Optional[str] = None,
             limit: int = 20,
             offset: int = 0) -> ListAgentVaultMembersResponse:
@@ -568,6 +583,7 @@ class AgentVaultAccessBundles:
 
         Args:
             access_bundle_id: The ID of the access bundle.
+            actor_type: List only users (AgentVaultMemberType.USER), only machine identities (AgentVaultMemberType.MACHINE_IDENTITY), or only groups (AgentVaultMemberType.GROUP). Defaults to all three.
             search: Match members by name, username or email address.
             limit: The maximum number of members to return (1-100). Defaults to 20.
             offset: How many members to skip. Defaults to 0.
@@ -576,13 +592,14 @@ class AgentVaultAccessBundles:
             ListAgentVaultMembersResponse containing members and totalCount.
         """
         params = {
+            "actorType": actor_type.value if isinstance(actor_type, AgentVaultMemberType) else actor_type,
             "search": search,
             "limit": limit,
             "offset": offset,
         }
 
         result = self.requests.get(
-            path=f"/api/v1/agent-vault/access-bundles/{access_bundle_id}/members/available",
+            path=f"/api/v1/agent-vault/access-bundles/{_segment(access_bundle_id)}/members/available",
             params=params,
             model=ListAgentVaultMembersResponse
         )
@@ -612,8 +629,10 @@ class AgentVaultAccessBundles:
             "groupIds": group_ids,
         }
 
-        result = self.requests.post(
-            path=f"/api/v1/agent-vault/access-bundles/{access_bundle_id}/members",
+        # Not retried once the request may have reached the server: after a lost response, a retry would report
+        # each grantee as skipped.
+        result = self.requests.post_once(
+            path=f"/api/v1/agent-vault/access-bundles/{_segment(access_bundle_id)}/members",
             json=request_body,
             model=AgentVaultGrantChangeResponse
         )
@@ -643,8 +662,10 @@ class AgentVaultAccessBundles:
             "groupIds": group_ids,
         }
 
-        result = self.requests.delete(
-            path=f"/api/v1/agent-vault/access-bundles/{access_bundle_id}/members",
+        # Not retried once the request may have reached the server: after a lost response, a retry would report
+        # each grantee as skipped.
+        result = self.requests.delete_once(
+            path=f"/api/v1/agent-vault/access-bundles/{_segment(access_bundle_id)}/members",
             json=request_body,
             model=AgentVaultGrantChangeResponse
         )
@@ -697,7 +718,7 @@ class AgentVaultDelegations:
             The delegation. missingAccessBundles lists the access bundles that the users it covers can use and the machine identity can't, so the machine identity can't create sessions over them. They're empty when a machine identity that isn't an admin gets its own delegation.
         """
         result = self.requests.get(
-            path=f"/api/v1/agent-vault/delegations/{machine_identity_id}",
+            path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}",
             model=SingleAgentVaultDelegationResponse
         )
 
@@ -727,7 +748,7 @@ class AgentVaultDelegations:
         }
 
         result = self.requests.put(
-            path=f"/api/v1/agent-vault/delegations/{machine_identity_id}",
+            path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}",
             json=request_body,
             model=SingleAgentVaultDelegationResponse
         )
@@ -744,7 +765,7 @@ class AgentVaultDelegations:
             The deleted delegation. missingAccessBundles isn't set.
         """
         result = self.requests.delete(
-            path=f"/api/v1/agent-vault/delegations/{machine_identity_id}",
+            path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}",
             model=SingleAgentVaultDelegationResponse
         )
 
@@ -771,7 +792,7 @@ class AgentVaultDelegations:
         }
 
         result = self.requests.post(
-            path=f"/api/v1/agent-vault/delegations/{machine_identity_id}/subjects",
+            path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}/subjects",
             json=request_body,
             model=SingleAgentVaultDelegationResponse
         )
@@ -799,7 +820,7 @@ class AgentVaultDelegations:
         }
 
         result = self.requests.delete(
-            path=f"/api/v1/agent-vault/delegations/{machine_identity_id}/subjects",
+            path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}/subjects",
             json=request_body,
             model=SingleAgentVaultDelegationResponse
         )
@@ -833,7 +854,7 @@ class AgentVaultDelegations:
         }
 
         result = self.requests.get(
-            path=f"/api/v1/agent-vault/delegations/{machine_identity_id}/subjects/available",
+            path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}/subjects/available",
             params=params,
             model=ListAgentVaultMembersResponse
         )
