@@ -820,6 +820,11 @@ class ListAgentVaultMembersResponse(BaseModel):
             totalCount=data['totalCount'],
         )
 
+def _missing_access_bundles(data: Dict) -> Optional[List[AgentVaultAccessBundleRef]]:
+    """Parses missingAccessBundles, which only some delegation responses include, so it's None when left out."""
+    bundles = data.get('missingAccessBundles')
+    return None if bundles is None else [AgentVaultAccessBundleRef.from_dict(bundle) for bundle in bundles]
+
 @dataclass
 class AgentVaultDelegationMachineIdentity(BaseModel):
     """The machine identity an Agent Vault delegation belongs to"""
@@ -841,10 +846,7 @@ class AgentVaultDelegationUser(BaseModel):
     def from_dict(cls, data: Dict) -> 'AgentVaultDelegationUser':
         """Create model from dictionary with nested missing access bundles"""
         user_data = data.copy()
-        if data.get('missingAccessBundles') is not None:
-            user_data['missingAccessBundles'] = [
-                AgentVaultAccessBundleRef.from_dict(bundle) for bundle in data['missingAccessBundles']
-            ]
+        user_data['missingAccessBundles'] = _missing_access_bundles(data)
 
         return super().from_dict(user_data)
 
@@ -860,10 +862,7 @@ class AgentVaultDelegationGroup(BaseModel):
     def from_dict(cls, data: Dict) -> 'AgentVaultDelegationGroup':
         """Create model from dictionary with nested missing access bundles"""
         group_data = data.copy()
-        if data.get('missingAccessBundles') is not None:
-            group_data['missingAccessBundles'] = [
-                AgentVaultAccessBundleRef.from_dict(bundle) for bundle in data['missingAccessBundles']
-            ]
+        group_data['missingAccessBundles'] = _missing_access_bundles(data)
 
         return super().from_dict(group_data)
 
@@ -885,10 +884,7 @@ class AgentVaultDelegation(BaseModel):
         delegation_data['machineIdentity'] = AgentVaultDelegationMachineIdentity.from_dict(data['machineIdentity'])
         delegation_data['users'] = [AgentVaultDelegationUser.from_dict(user) for user in data['users']]
         delegation_data['groups'] = [AgentVaultDelegationGroup.from_dict(group) for group in data['groups']]
-        if data.get('missingAccessBundles') is not None:
-            delegation_data['missingAccessBundles'] = [
-                AgentVaultAccessBundleRef.from_dict(bundle) for bundle in data['missingAccessBundles']
-            ]
+        delegation_data['missingAccessBundles'] = _missing_access_bundles(data)
 
         return super().from_dict(delegation_data)
 
