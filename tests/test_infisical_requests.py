@@ -20,6 +20,18 @@ def test_patch_keeps_false_zero_and_empty_string(api, json_response):
     assert api.session.patch.call_args.kwargs["json"] == {"enabled": False, "count": 0, "note": ""}
 
 
+def test_put_leaves_out_none_values(api, json_response):
+    api.session.put.return_value = json_response({})
+    api.put(path="/api/v1/example", model=dict, json={"scope": "selected", "groupIds": None})
+    assert api.session.put.call_args.kwargs["json"] == {"scope": "selected"}
+
+
+def test_put_retries_a_read_timeout(api, json_response):
+    api.session.put.side_effect = [requests.exceptions.ReadTimeout(), json_response({"ok": True})]
+    assert api.put(path="/api/v1/example", model=dict).data == {"ok": True}
+    assert api.session.put.call_count == 2
+
+
 def test_post_retries_a_read_timeout(api, json_response):
     api.session.post.side_effect = [requests.exceptions.ReadTimeout(), json_response({"ok": True})]
     assert api.post(path="/api/v1/example", model=dict).data == {"ok": True}

@@ -257,6 +257,31 @@ class InfisicalRequests:
         )
 
     @with_retry(max_retries=4, base_delay=1.0)
+    def put(
+            self,
+            path: str,
+            model: Type[T],
+            json: Optional[Dict[str, Any]] = None
+          ) -> APIResponse[T]:
+
+        """Make a PUT request with JSON data. A PUT replaces the whole resource, so it's safe to retry."""
+
+        if json is not None:
+            # Filter out None values
+            json = {k: v for k, v in json.items() if v is not None}
+
+        response = self.session.put(self._build_url(path), json=json)
+        data = self._handle_response(response)
+
+        parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
+
+        return APIResponse(
+            data=parsed_data,
+            status_code=response.status_code,
+            headers=dict(response.headers)
+        )
+
+    @with_retry(max_retries=4, base_delay=1.0)
     def delete(
             self,
             path: str,
@@ -264,7 +289,32 @@ class InfisicalRequests:
             json: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
-        """Make a PATCH request with JSON data"""
+        """Make a DELETE request with JSON data"""
+
+        if json is not None:
+            # Filter out None values
+            json = {k: v for k, v in json.items() if v is not None}
+
+        response = self.session.delete(self._build_url(path), json=json)
+        data = self._handle_response(response)
+
+        parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
+
+        return APIResponse(
+            data=parsed_data,
+            status_code=response.status_code,
+            headers=dict(response.headers)
+        )
+
+    @with_retry(max_retries=4, base_delay=1.0, network_errors=CONNECT_ERRORS)
+    def delete_once(
+            self,
+            path: str,
+            model: Type[T],
+            json: Optional[Dict[str, Any]] = None
+          ) -> APIResponse[T]:
+
+        """Make a DELETE request that must not run twice. It's retried only in the same cases as post_once."""
 
         if json is not None:
             # Filter out None values
