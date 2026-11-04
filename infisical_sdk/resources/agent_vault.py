@@ -345,7 +345,7 @@ class AgentVaultSessions:
 
         request_body = {
             # Left out without an access bundle, for a session that carries only services of its own.
-            "accessBundles": [access_bundle] if access_bundle is not None else None,
+            "accessBundle": access_bundle,
             "services": services,
             "ttl": ttl,
             "label": label,
@@ -390,7 +390,7 @@ class AgentVaultSessions:
             session_id: The ID of the session to revoke.
 
         Returns:
-            The revoked session. Its accessBundles and services are None, because the response leaves them out; call get for them.
+            The revoked session. Its accessBundle and services are None, because the response leaves them out; call get for them.
         """
         result = self.requests.post(
             path=f"/api/v1/agent-vault/sessions/{_segment(session_id)}/revoke",

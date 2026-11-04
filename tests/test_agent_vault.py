@@ -17,7 +17,7 @@ SESSION = {
     "label": None,
     "status": "active",
     "createdAt": "2026-10-27T00:00:00.000Z",
-    "accessBundles": [],
+    "accessBundle": {"id": "0d3f8a51-7c2e-4b9a-8e16-5a4c3b2d1f07", "name": "release"},
     "services": [],
 }
 ON_BEHALF_OF = {
@@ -141,22 +141,37 @@ def test_proxies_rotate_token_is_not_retried_once_the_request_may_have_reached_t
     assert api.session.post.call_count == 1
 
 
-def test_sessions_revoke_leaves_access_bundles_and_services_unset_when_the_response_omits_them(api, agent_vault, json_response):
-    revoked = {key: value for key, value in SESSION.items() if key not in ("accessBundles", "services")}
+def test_sessions_revoke_leaves_the_access_bundle_and_services_unset_when_the_response_omits_them(api, agent_vault, json_response):
+    revoked = {key: value for key, value in SESSION.items() if key not in ("accessBundle", "services")}
     api.session.post.return_value = json_response({"session": dict(revoked, status="revoked")})
     session = agent_vault.sessions.revoke(SESSION["id"])
-    assert (session.accessBundles, session.services) == (None, None)
+    assert (session.accessBundle, session.services) == (None, None)
 
 
-def test_sessions_get_keeps_an_empty_access_bundles_list(api, agent_vault, json_response):
+def test_sessions_get_reads_the_access_bundle(api, agent_vault, json_response):
     api.session.get.return_value = json_response({"session": SESSION})
-    assert agent_vault.sessions.get(SESSION["id"]).accessBundles == []
+    bundle = agent_vault.sessions.get(SESSION["id"]).accessBundle
+    assert (bundle.id, bundle.name) == (SESSION["accessBundle"]["id"], "release")
+
+
+def test_sessions_get_keeps_the_name_of_a_deleted_access_bundle(api, agent_vault, json_response):
+    api.session.get.return_value = json_response({"session": dict(SESSION, accessBundle={"id": None, "name": "release"})})
+    bundle = agent_vault.sessions.get(SESSION["id"]).accessBundle
+    assert (bundle.id, bundle.name) == (None, "release")
+
+
+def test_sessions_create_sends_one_access_bundle(api, agent_vault, json_response):
+    created = {"id": SESSION["id"], "token": "agv_token", "createdAt": SESSION["createdAt"], "accessBundle": SESSION["accessBundle"]}
+    api.session.post.return_value = json_response({"session": created})
+    session = agent_vault.sessions.create(access_bundle="release", ttl="1h")
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "ttl": "1h"}
+    assert session.accessBundle.name == "release"
 
 
 def test_sessions_create_leaves_out_ttl_so_the_server_picks_the_default(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
     agent_vault.sessions.create(access_bundle="release")
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": ["release"]}
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release"}
 
 
 @pytest.mark.parametrize("kwargs, on_behalf_of", [
@@ -167,13 +182,13 @@ def test_sessions_create_leaves_out_ttl_so_the_server_picks_the_default(api, age
 def test_sessions_create_names_the_user_it_acts_for(api, agent_vault, json_response, kwargs, on_behalf_of):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
     agent_vault.sessions.create(access_bundle="release", **kwargs)
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": ["release"], "onBehalfOf": on_behalf_of}
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "onBehalfOf": on_behalf_of}
 
 
 def test_sessions_create_still_takes_the_access_bundle_first(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
     agent_vault.sessions.create("release", "1h")
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": ["release"], "ttl": "1h"}
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "ttl": "1h"}
 
 
 def test_sessions_create_rejects_both_a_user_email_and_a_user_id(api, agent_vault):
@@ -350,13 +365,13 @@ def test_sessions_create_sends_services_without_an_access_bundle(api, agent_vaul
 def test_sessions_create_sends_an_access_bundle_and_services_together(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token", services=[INLINE_SERVICE])})
     agent_vault.sessions.create(access_bundle="release", services=[INLINE_SERVICE_INPUT])
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": ["release"], "services": [INLINE_SERVICE_INPUT]}
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "services": [INLINE_SERVICE_INPUT]}
 
 
 def test_sessions_create_sends_an_empty_access_bundle_name_so_the_server_rejects_it(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
     agent_vault.sessions.create(access_bundle="")
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundles": [""]}
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": ""}
 
 
 def test_sessions_read_services_as_the_api_sends_them(api, agent_vault, json_response):

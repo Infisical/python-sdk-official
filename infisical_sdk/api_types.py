@@ -561,9 +561,8 @@ class AgentVaultSessionActor(BaseModel):
 
 @dataclass
 class AgentVaultSessionAccessBundle(BaseModel):
-    """An access bundle carried by an Agent Vault session"""
+    """The access bundle an Agent Vault session carries. id is None once the bundle is deleted."""
     name: str
-    position: int
     id: Optional[str] = None
 
 @dataclass
@@ -591,22 +590,20 @@ class AgentVaultSession(BaseModel):
     actor: Optional[AgentVaultSessionActor] = None
     expiresAt: Optional[str] = None
     revokedAt: Optional[str] = None
-    accessBundles: Optional[List[AgentVaultSessionAccessBundle]] = None
+    accessBundle: Optional[AgentVaultSessionAccessBundle] = None
     onBehalfOf: Optional[AgentVaultSessionActor] = None
     services: Optional[List[AgentVaultInlineService]] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'AgentVaultSession':
-        """Create model from dictionary with nested actor, on-behalf-of user, access bundles and inline services. accessBundles and services are None if the response leaves them out."""
+        """Create model from dictionary with nested actor, on-behalf-of user, access bundle and inline services. accessBundle and services are None if the response leaves them out."""
         session_data = data.copy()
         if data.get('actor') is not None:
             session_data['actor'] = AgentVaultSessionActor.from_dict(data['actor'])
         if data.get('onBehalfOf') is not None:
             session_data['onBehalfOf'] = AgentVaultSessionActor.from_dict(data['onBehalfOf'])
-        if data.get('accessBundles') is not None:
-            session_data['accessBundles'] = [
-                AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data['accessBundles']
-            ]
+        if data.get('accessBundle') is not None:
+            session_data['accessBundle'] = AgentVaultSessionAccessBundle.from_dict(data['accessBundle'])
         if data.get('services') is not None:
             session_data['services'] = [AgentVaultInlineService.from_dict(service) for service in data['services']]
 
@@ -620,16 +617,15 @@ class CreatedAgentVaultSession(BaseModel):
     createdAt: str
     label: Optional[str] = None
     expiresAt: Optional[str] = None
-    accessBundles: List[AgentVaultSessionAccessBundle] = field(default_factory=list)
+    accessBundle: Optional[AgentVaultSessionAccessBundle] = None
     services: List[AgentVaultInlineService] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'CreatedAgentVaultSession':
-        """Create model from dictionary with nested access bundles and inline services"""
+        """Create model from dictionary with nested access bundle and inline services"""
         session_data = data.copy()
-        session_data['accessBundles'] = [
-            AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data.get('accessBundles', [])
-        ]
+        if data.get('accessBundle') is not None:
+            session_data['accessBundle'] = AgentVaultSessionAccessBundle.from_dict(data['accessBundle'])
         session_data['services'] = [
             AgentVaultInlineService.from_dict(service) for service in data.get('services', [])
         ]
