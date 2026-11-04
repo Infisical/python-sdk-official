@@ -529,9 +529,8 @@ class AgentVaultSessionActor(BaseModel):
 
 @dataclass
 class AgentVaultSessionAccessBundle(BaseModel):
-    """An access bundle carried by an Agent Vault session"""
+    """The access bundle an Agent Vault session carries. id is None once the bundle is deleted."""
     name: str
-    position: int
     id: Optional[str] = None
 
 @dataclass
@@ -544,18 +543,16 @@ class AgentVaultSession(BaseModel):
     actor: Optional[AgentVaultSessionActor] = None
     expiresAt: Optional[str] = None
     revokedAt: Optional[str] = None
-    accessBundles: Optional[List[AgentVaultSessionAccessBundle]] = None
+    accessBundle: Optional[AgentVaultSessionAccessBundle] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'AgentVaultSession':
-        """Create model from dictionary with nested actor and access bundles. accessBundles is None if the response leaves it out."""
+        """Create model from dictionary with nested actor and access bundle. accessBundle is None if the response leaves it out."""
         session_data = data.copy()
         if data.get('actor') is not None:
             session_data['actor'] = AgentVaultSessionActor.from_dict(data['actor'])
-        if data.get('accessBundles') is not None:
-            session_data['accessBundles'] = [
-                AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data['accessBundles']
-            ]
+        if data.get('accessBundle') is not None:
+            session_data['accessBundle'] = AgentVaultSessionAccessBundle.from_dict(data['accessBundle'])
 
         return super().from_dict(session_data)
 
@@ -567,15 +564,14 @@ class CreatedAgentVaultSession(BaseModel):
     createdAt: str
     label: Optional[str] = None
     expiresAt: Optional[str] = None
-    accessBundles: List[AgentVaultSessionAccessBundle] = field(default_factory=list)
+    accessBundle: Optional[AgentVaultSessionAccessBundle] = None
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'CreatedAgentVaultSession':
-        """Create model from dictionary with nested access bundles"""
+        """Create model from dictionary with nested access bundle"""
         session_data = data.copy()
-        session_data['accessBundles'] = [
-            AgentVaultSessionAccessBundle.from_dict(bundle) for bundle in data.get('accessBundles', [])
-        ]
+        if data.get('accessBundle') is not None:
+            session_data['accessBundle'] = AgentVaultSessionAccessBundle.from_dict(data['accessBundle'])
 
         return super().from_dict(session_data)
 
