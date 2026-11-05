@@ -520,3 +520,88 @@ def test_deletes_are_not_retried_once_the_request_may_have_reached_the_server(ap
     with pytest.raises(requests.exceptions.ReadTimeout):
         call(agent_vault)
     assert api.session.delete.call_count == 1
+
+
+PROJECT_ID = "4d6f8a1c-2e3b-4c5d-9e7f-1a2b3c4d5e6f"
+
+LISTS = [
+    ("proxies.list", lambda agent_vault, **kwargs: agent_vault.proxies.list(**kwargs), {"proxies": [], "totalCount": 0}),
+    ("sessions.list", lambda agent_vault, **kwargs: agent_vault.sessions.list(**kwargs), {"sessions": [], "totalCount": 0}),
+    ("access_bundles.list", lambda agent_vault, **kwargs: agent_vault.access_bundles.list(**kwargs),
+     {"accessBundles": [], "totalCount": 0}),
+    ("delegations.list", lambda agent_vault, **kwargs: agent_vault.delegations.list(**kwargs),
+     {"delegations": [], "totalCount": 0}),
+    ("delegations.get", lambda agent_vault, **kwargs: agent_vault.delegations.get(MACHINE_IDENTITY_ID, **kwargs),
+     {"delegation": DELEGATION}),
+    ("delegations.list_available_subjects",
+     lambda agent_vault, **kwargs: agent_vault.delegations.list_available_subjects(MACHINE_IDENTITY_ID, **kwargs),
+     {"members": [], "totalCount": 0}),
+]
+
+CREATES = [
+    ("proxies.create", lambda agent_vault, **kwargs: agent_vault.proxies.create(name="edge-proxy", **kwargs),
+     {"proxy": PROXY, "proxyToken": "token"}),
+    ("sessions.create", lambda agent_vault, **kwargs: agent_vault.sessions.create(access_bundle="release", **kwargs),
+     {"session": dict(SESSION, token="token")}),
+    ("access_bundles.create", lambda agent_vault, **kwargs: agent_vault.access_bundles.create(name="release", **kwargs),
+     {"accessBundle": BUNDLE}),
+]
+
+DELEGATION_WRITES = [
+    ("delegations.set", "put",
+     lambda agent_vault, **kwargs: agent_vault.delegations.set(MACHINE_IDENTITY_ID, "all-members", **kwargs)),
+    ("delegations.delete", "delete",
+     lambda agent_vault, **kwargs: agent_vault.delegations.delete(MACHINE_IDENTITY_ID, **kwargs)),
+    ("delegations.add_subjects", "post",
+     lambda agent_vault, **kwargs: agent_vault.delegations.add_subjects(MACHINE_IDENTITY_ID, user_ids=[ON_BEHALF_OF["id"]], **kwargs)),
+    ("delegations.remove_subjects", "delete",
+     lambda agent_vault, **kwargs: agent_vault.delegations.remove_subjects(MACHINE_IDENTITY_ID, user_ids=[ON_BEHALF_OF["id"]], **kwargs)),
+]
+
+
+@pytest.mark.parametrize("call, payload", [(call, payload) for _, call, payload in LISTS], ids=[name for name, _, _ in LISTS])
+def test_lists_send_the_project_id_in_the_query(api, agent_vault, json_response, call, payload):
+    api.session.get.return_value = json_response(payload)
+    call(agent_vault, project_id=PROJECT_ID)
+    assert api.session.get.call_args.kwargs["params"]["projectId"] == PROJECT_ID
+
+
+@pytest.mark.parametrize("call, payload", [(call, payload) for _, call, payload in LISTS], ids=[name for name, _, _ in LISTS])
+def test_lists_leave_out_the_project_id_so_the_server_picks_the_project(api, agent_vault, json_response, call, payload):
+    api.session.get.return_value = json_response(payload)
+    call(agent_vault)
+    # requests drops query parameters whose value is None.
+    assert api.session.get.call_args.kwargs["params"].get("projectId") is None
+
+
+@pytest.mark.parametrize("call, payload", [(call, payload) for _, call, payload in CREATES], ids=[name for name, _, _ in CREATES])
+def test_creates_send_the_project_id_in_the_body(api, agent_vault, json_response, call, payload):
+    api.session.post.return_value = json_response(payload)
+    call(agent_vault, project_id=PROJECT_ID)
+    assert api.session.post.call_args.kwargs["json"]["projectId"] == PROJECT_ID
+    assert api.session.post.call_args.kwargs.get("params") is None
+
+
+@pytest.mark.parametrize("call, payload", [(call, payload) for _, call, payload in CREATES], ids=[name for name, _, _ in CREATES])
+def test_creates_leave_out_the_project_id_so_the_server_picks_the_project(api, agent_vault, json_response, call, payload):
+    api.session.post.return_value = json_response(payload)
+    call(agent_vault)
+    assert "projectId" not in api.session.post.call_args.kwargs["json"]
+
+
+@pytest.mark.parametrize("verb, call", [(verb, call) for _, verb, call in DELEGATION_WRITES],
+                         ids=[name for name, _, _ in DELEGATION_WRITES])
+def test_delegation_writes_send_the_project_id_in_the_query_and_not_the_body(api, agent_vault, json_response, verb, call):
+    # A delegation is addressed by its machine identity, which can be in several projects, and the server refuses a
+    # projectId in the body of these routes.
+    getattr(api.session, verb).return_value = json_response({"delegation": DELEGATION})
+    call(agent_vault, project_id=PROJECT_ID)
+    sent = getattr(api.session, verb).call_args.kwargs
+    assert sent["params"] == {"projectId": PROJECT_ID}
+    assert "projectId" not in (sent["json"] or {})
+
+
+def test_a_project_id_left_out_of_the_query_is_not_sent():
+    prepared = requests.Request("PUT", "https://infisical.example.com/api/v1/agent-vault/delegations/id",
+                                params={"projectId": None}).prepare()
+    assert prepared.url == "https://infisical.example.com/api/v1/agent-vault/delegations/id"

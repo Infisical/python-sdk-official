@@ -88,8 +88,9 @@ class AgentVaultProxies:
             order_by: str = "createdAt",
             order_direction: str = "desc",
             limit: int = 20,
-            offset: int = 0) -> ListAgentVaultProxiesResponse:
-        """List the organization's Agent Vault proxies.
+            offset: int = 0,
+            project_id: Optional[str] = None) -> ListAgentVaultProxiesResponse:
+        """List an Agent Vault project's proxies.
 
         Args:
             search: Match proxies by name or description.
@@ -97,6 +98,7 @@ class AgentVaultProxies:
             order_direction: Which way to sort: "asc" or "desc". Defaults to "desc".
             limit: The maximum number of proxies to return (1-100). Defaults to 20.
             offset: How many proxies to skip. Defaults to 0.
+            project_id: The ID of the Agent Vault project to list proxies from. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             ListAgentVaultProxiesResponse containing proxies and totalCount. Settings fields are only set for admins.
@@ -107,6 +109,7 @@ class AgentVaultProxies:
             "orderDirection": order_direction,
             "limit": limit,
             "offset": offset,
+            "projectId": project_id,
         }
 
         result = self.requests.get(
@@ -123,7 +126,8 @@ class AgentVaultProxies:
             traffic_policy: Union[AgentVaultTrafficPolicy, str] = AgentVaultTrafficPolicy.ANY_HOST,
             allowed_hosts: Optional[Union[str, List[str]]] = None,
             poll_interval: int = 60,
-            description: Optional[str] = None) -> AgentVaultProxyWithTokenResponse:
+            description: Optional[str] = None,
+            project_id: Optional[str] = None) -> AgentVaultProxyWithTokenResponse:
         """Register an Agent Vault proxy and issue its proxy token.
 
         Args:
@@ -132,6 +136,7 @@ class AgentVaultProxies:
             allowed_hosts: Hosts that stay reachable under the "service-hosts" traffic policy even though none of the session's services cover them. A list or a comma-separated string.
             poll_interval: How often, in seconds, the proxy refreshes its sessions and settings (10-300). Defaults to 60.
             description: What the proxy is for, up to 256 characters, without line breaks or other control characters.
+            project_id: The ID of the Agent Vault project to register the proxy in. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             AgentVaultProxyWithTokenResponse containing the proxy and its proxyToken. The token is only returned once.
@@ -142,6 +147,7 @@ class AgentVaultProxies:
             "allowedHosts": _join_hosts(allowed_hosts),
             "pollInterval": poll_interval,
             "description": description,
+            "projectId": project_id,
         }
 
         result = self.requests.post_once(
@@ -257,7 +263,8 @@ class AgentVaultSessions:
             statuses: Optional[List[Union[AgentVaultSessionStatus, str]]] = None,
             search: Optional[str] = None,
             limit: int = 20,
-            offset: int = 0) -> ListAgentVaultSessionsResponse:
+            offset: int = 0,
+            project_id: Optional[str] = None) -> ListAgentVaultSessionsResponse:
         """List Agent Vault sessions.
 
         Args:
@@ -266,6 +273,7 @@ class AgentVaultSessions:
             search: Match sessions by label, actor name, actor email, the name or email of the user a session was started on behalf of, or access bundle name.
             limit: The maximum number of sessions to return (1-100). Defaults to 20.
             offset: How many sessions to skip. Defaults to 0.
+            project_id: The ID of the Agent Vault project to list sessions from. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             ListAgentVaultSessionsResponse containing sessions and totalCount.
@@ -280,6 +288,7 @@ class AgentVaultSessions:
             "search": search,
             "limit": limit,
             "offset": offset,
+            "projectId": project_id,
         }
 
         result = self.requests.get(
@@ -315,7 +324,8 @@ class AgentVaultSessions:
             label: Optional[str] = None,
             on_behalf_of_user_email: Optional[str] = None,
             on_behalf_of_user_id: Optional[str] = None,
-            services: Optional[List[Dict[str, Any]]] = None) -> CreatedAgentVaultSession:
+            services: Optional[List[Dict[str, Any]]] = None,
+            project_id: Optional[str] = None) -> CreatedAgentVaultSession:
         """Create an Agent Vault session with an access bundle you can reach, services of its own, or both, for yourself or, as a machine identity with a delegation, on behalf of a user.
 
         Only Agent Vault admins can send services with a session. On behalf of a user, that's your machine identity:
@@ -333,6 +343,7 @@ class AgentVaultSessions:
             on_behalf_of_user_email: The email address of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_id.
             on_behalf_of_user_id: The ID of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_email.
             services: Services the session carries itself, instead of or beside its access bundle's: up to 20 dicts with the API's field names, such as {"type": "http", "hostPattern": "api.github.com", "credential": {"type": "bearer", "value": token}}. Only Agent Vault admins can send them. Each has the same fields as a service in an access bundle, except that its name is optional, its values can't use variables, it can't use OAuth or member-provided values, and an MCP server can't be limited to some of its tools. To limit an MCP server's tools, add it to an access bundle instead.
+            project_id: The ID of the Agent Vault project to create the session in. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             The created session, including its token. The token is only returned once. Its services leave out their tokens, passwords and values.
@@ -352,6 +363,7 @@ class AgentVaultSessions:
             "ttl": ttl,
             "label": label,
             "onBehalfOf": on_behalf_of,
+            "projectId": project_id,
         }
 
         result = self.requests.post_once(
@@ -418,7 +430,8 @@ class AgentVaultAccessBundles:
             order_by: str = "createdAt",
             order_direction: str = "desc",
             limit: int = 20,
-            offset: int = 0) -> ListAgentVaultAccessBundlesResponse:
+            offset: int = 0,
+            project_id: Optional[str] = None) -> ListAgentVaultAccessBundlesResponse:
         """List the Agent Vault access bundles you can reach. Admins reach every access bundle.
 
         Args:
@@ -431,6 +444,7 @@ class AgentVaultAccessBundles:
             order_direction: Which way to sort: "asc" or "desc". Defaults to "desc".
             limit: The maximum number of access bundles to return (1-100). Defaults to 20.
             offset: How many access bundles to skip. Defaults to 0.
+            project_id: The ID of the Agent Vault project to list access bundles from. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             ListAgentVaultAccessBundlesResponse containing accessBundles and totalCount.
@@ -447,6 +461,7 @@ class AgentVaultAccessBundles:
             "orderDirection": order_direction,
             "limit": limit,
             "offset": offset,
+            "projectId": project_id,
         }
 
         result = self.requests.get(
@@ -473,12 +488,17 @@ class AgentVaultAccessBundles:
 
         return result.data.accessBundle
 
-    def create(self, name: str, description: Optional[str] = None) -> AgentVaultAccessBundle:
+    def create(
+            self,
+            name: str,
+            description: Optional[str] = None,
+            project_id: Optional[str] = None) -> AgentVaultAccessBundle:
         """Create an Agent Vault access bundle. It's granted to you, unless you're in Agent Vault only through a group.
 
         Args:
             name: The name of the access bundle (a slug, at most 64 characters).
             description: What the access bundle is for, up to 256 characters, without line breaks or other control characters.
+            project_id: The ID of the Agent Vault project to create the access bundle in. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             The created access bundle.
@@ -486,6 +506,7 @@ class AgentVaultAccessBundles:
         request_body = {
             "name": name,
             "description": description,
+            "projectId": project_id,
         }
 
         result = self.requests.post_once(
@@ -678,7 +699,9 @@ class AgentVaultAccessBundles:
 
 
 class AgentVaultDelegations:
-    """Manages Agent Vault delegations, which let machine identities create sessions on behalf of users. Every method requires the Admin role in Agent Vault, except that a machine identity can get its own delegation."""
+    """Manages Agent Vault delegations, which let machine identities create sessions on behalf of users. Every method requires the Admin role in Agent Vault, except that a machine identity can get its own delegation.
+
+    A machine identity can be a member of several Agent Vault projects and has a separate delegation in each, so every method takes project_id."""
 
     def __init__(self, requests: InfisicalRequests) -> None:
         self.requests = requests
@@ -687,13 +710,15 @@ class AgentVaultDelegations:
             self,
             machine_identity_ids: Optional[List[str]] = None,
             limit: int = 100,
-            offset: int = 0) -> ListAgentVaultDelegationsResponse:
+            offset: int = 0,
+            project_id: Optional[str] = None) -> ListAgentVaultDelegationsResponse:
         """List the machine identities that can create Agent Vault sessions on behalf of users.
 
         Args:
             machine_identity_ids: Only return the delegations of these machine identities, up to 100.
             limit: The maximum number of delegations to return (1-100). Defaults to 100.
             offset: How many delegations to skip. Defaults to 0.
+            project_id: The ID of the Agent Vault project to list delegations from. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             ListAgentVaultDelegationsResponse containing delegations and totalCount. missingAccessBundles isn't set on these delegations; call get for it.
@@ -702,6 +727,7 @@ class AgentVaultDelegations:
             "machineIdentityIds": ",".join(machine_identity_ids) if machine_identity_ids else None,
             "limit": limit,
             "offset": offset,
+            "projectId": project_id,
         }
 
         result = self.requests.get(
@@ -712,17 +738,19 @@ class AgentVaultDelegations:
 
         return result.data
 
-    def get(self, machine_identity_id: str) -> AgentVaultDelegation:
+    def get(self, machine_identity_id: str, project_id: Optional[str] = None) -> AgentVaultDelegation:
         """Get which users a machine identity can create Agent Vault sessions on behalf of. Raises an APIError with status 404 if the machine identity has no delegation.
 
         Args:
             machine_identity_id: The ID of the machine identity.
+            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             The delegation. missingAccessBundles lists the access bundles that the users it covers can use and the machine identity can't, so the machine identity can't create sessions over them. They're empty when a machine identity that isn't an admin gets its own delegation.
         """
         result = self.requests.get(
             path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}",
+            params={"projectId": project_id},
             model=SingleAgentVaultDelegationResponse
         )
 
@@ -733,7 +761,8 @@ class AgentVaultDelegations:
             machine_identity_id: str,
             scope: Union[AgentVaultDelegationScope, str],
             user_ids: Optional[List[str]] = None,
-            group_ids: Optional[List[str]] = None) -> AgentVaultDelegation:
+            group_ids: Optional[List[str]] = None,
+            project_id: Optional[str] = None) -> AgentVaultDelegation:
         """Set which users a machine identity can create Agent Vault sessions on behalf of, replacing any delegation it has.
 
         Args:
@@ -741,6 +770,7 @@ class AgentVaultDelegations:
             scope: AgentVaultDelegationScope.ALL_MEMBERS ("all-members") for every Agent Vault member, admins included, or AgentVaultDelegationScope.SELECTED ("selected") for only the users and groups you name.
             user_ids: With the "selected" scope, the users the machine identity can act on behalf of, up to 100. Each must be a member of Agent Vault. For a user who's in Agent Vault only through a group, name the group instead.
             group_ids: With the "selected" scope, the groups whose members the machine identity can act on behalf of, up to 100. Each must be a member of Agent Vault.
+            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             The saved delegation, with missingAccessBundles.
@@ -754,16 +784,18 @@ class AgentVaultDelegations:
         result = self.requests.put(
             path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}",
             json=request_body,
+            params={"projectId": project_id},
             model=SingleAgentVaultDelegationResponse
         )
 
         return result.data.delegation
 
-    def delete(self, machine_identity_id: str) -> AgentVaultDelegation:
+    def delete(self, machine_identity_id: str, project_id: Optional[str] = None) -> AgentVaultDelegation:
         """Stop a machine identity from creating Agent Vault sessions on behalf of users. The proxy refuses the sessions it already created on their behalf until a delegation covers those users again, so revoke the sessions to end them for good.
 
         Args:
             machine_identity_id: The ID of the machine identity.
+            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             The deleted delegation. missingAccessBundles isn't set.
@@ -772,6 +804,7 @@ class AgentVaultDelegations:
         # 404 for a delete that worked.
         result = self.requests.delete_once(
             path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}",
+            params={"projectId": project_id},
             model=SingleAgentVaultDelegationResponse
         )
 
@@ -781,13 +814,15 @@ class AgentVaultDelegations:
             self,
             machine_identity_id: str,
             user_ids: Optional[List[str]] = None,
-            group_ids: Optional[List[str]] = None) -> AgentVaultDelegation:
+            group_ids: Optional[List[str]] = None,
+            project_id: Optional[str] = None) -> AgentVaultDelegation:
         """Add users and groups to a machine identity's delegation, keeping the ones it already names. If the machine identity has no delegation, this creates one with the "selected" scope. A delegation to all members can't take users or groups.
 
         Args:
             machine_identity_id: The ID of the machine identity.
             user_ids: The users to add, up to 100. Each must be a member of Agent Vault. Users the delegation already names are skipped.
             group_ids: The groups to add, up to 100. Each must be a member of Agent Vault. Groups the delegation already names are skipped.
+            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             The delegation after the change, with missingAccessBundles.
@@ -800,6 +835,7 @@ class AgentVaultDelegations:
         result = self.requests.post(
             path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}/subjects",
             json=request_body,
+            params={"projectId": project_id},
             model=SingleAgentVaultDelegationResponse
         )
 
@@ -809,13 +845,15 @@ class AgentVaultDelegations:
             self,
             machine_identity_id: str,
             user_ids: Optional[List[str]] = None,
-            group_ids: Optional[List[str]] = None) -> Optional[AgentVaultDelegation]:
+            group_ids: Optional[List[str]] = None,
+            project_id: Optional[str] = None) -> Optional[AgentVaultDelegation]:
         """Take users and groups out of a machine identity's delegation. The proxy refuses the sessions it created on behalf of the users you take out until the delegation covers them again, so revoke the sessions to end them for good. Taking out the last user or group removes the delegation.
 
         Args:
             machine_identity_id: The ID of the machine identity.
             user_ids: The users to take out, up to 100. Users the delegation doesn't name are skipped.
             group_ids: The groups to take out, up to 100. Groups the delegation doesn't name are skipped.
+            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             The delegation after the change, with missingAccessBundles, or None if it no longer names anyone.
@@ -830,6 +868,7 @@ class AgentVaultDelegations:
         result = self.requests.delete_once(
             path=f"/api/v1/agent-vault/delegations/{_segment(machine_identity_id)}/subjects",
             json=request_body,
+            params={"projectId": project_id},
             model=SingleAgentVaultDelegationResponse
         )
 
@@ -841,7 +880,8 @@ class AgentVaultDelegations:
             actor_type: Optional[Union[AgentVaultMemberType, str]] = None,
             search: Optional[str] = None,
             limit: int = 20,
-            offset: int = 0) -> ListAgentVaultMembersResponse:
+            offset: int = 0,
+            project_id: Optional[str] = None) -> ListAgentVaultMembersResponse:
         """List the Agent Vault users and groups that can still be added to a machine identity's delegation.
 
         Args:
@@ -850,6 +890,7 @@ class AgentVaultDelegations:
             search: Match users by name, username or email address, and groups by name.
             limit: The maximum number of users and groups to return (1-100). Defaults to 20.
             offset: How many users and groups to skip. Defaults to 0.
+            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
 
         Returns:
             ListAgentVaultMembersResponse containing the users and groups in members, and totalCount.
@@ -859,6 +900,7 @@ class AgentVaultDelegations:
             "search": search,
             "limit": limit,
             "offset": offset,
+            "projectId": project_id,
         }
 
         result = self.requests.get(

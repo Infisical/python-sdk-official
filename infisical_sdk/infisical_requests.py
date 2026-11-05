@@ -184,7 +184,8 @@ class InfisicalRequests:
             self,
             path: str,
             model: Type[T],
-            json: Optional[Dict[str, Any]] = None
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
         """Make a POST request with JSON data"""
@@ -193,7 +194,7 @@ class InfisicalRequests:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.post(self._build_url(path), json=json)
+        response = self.session.post(self._build_url(path), json=json, params=params)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
@@ -209,7 +210,8 @@ class InfisicalRequests:
             self,
             path: str,
             model: Type[T],
-            json: Optional[Dict[str, Any]] = None
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
         """Make a POST request that must not run twice, such as one that creates something.
@@ -219,7 +221,7 @@ class InfisicalRequests:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.post(self._build_url(path), json=json)
+        response = self.session.post(self._build_url(path), json=json, params=params)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
@@ -261,7 +263,8 @@ class InfisicalRequests:
             self,
             path: str,
             model: Type[T],
-            json: Optional[Dict[str, Any]] = None
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
         """Make a PUT request with JSON data. A PUT replaces the whole resource, so it's safe to retry."""
@@ -270,7 +273,7 @@ class InfisicalRequests:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.put(self._build_url(path), json=json)
+        response = self.session.put(self._build_url(path), json=json, params=params)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
@@ -286,7 +289,8 @@ class InfisicalRequests:
             self,
             path: str,
             model: Type[T],
-            json: Optional[Dict[str, Any]] = None
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
         """Make a DELETE request with JSON data"""
@@ -295,7 +299,7 @@ class InfisicalRequests:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.delete(self._build_url(path), json=json)
+        response = self.session.delete(self._build_url(path), json=json, params=params)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
@@ -311,7 +315,8 @@ class InfisicalRequests:
             self,
             path: str,
             model: Type[T],
-            json: Optional[Dict[str, Any]] = None
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
         """Make a DELETE request that must not run twice. It's retried only in the same cases as post_once."""
@@ -320,7 +325,7 @@ class InfisicalRequests:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.delete(self._build_url(path), json=json)
+        response = self.session.delete(self._build_url(path), json=json, params=params)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
