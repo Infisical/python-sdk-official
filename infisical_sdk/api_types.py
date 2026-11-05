@@ -615,6 +615,7 @@ class CreatedAgentVaultSession(BaseModel):
     id: str
     token: str
     createdAt: str
+    projectId: Optional[str] = None
     label: Optional[str] = None
     expiresAt: Optional[str] = None
     accessBundle: Optional[AgentVaultSessionAccessBundle] = None

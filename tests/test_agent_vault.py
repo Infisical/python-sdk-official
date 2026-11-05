@@ -169,6 +169,12 @@ def test_sessions_create_sends_one_access_bundle(api, agent_vault, json_response
     assert session.accessBundle.name == "release"
 
 
+
+def test_sessions_create_reads_the_project_the_session_belongs_to(api, agent_vault, json_response):
+    created = {"id": SESSION["id"], "projectId": PROJECT_ID, "token": "agv_token", "createdAt": SESSION["createdAt"]}
+    api.session.post.return_value = json_response({"session": created})
+    assert agent_vault.sessions.create(access_bundle="release", project_id=PROJECT_ID).projectId == PROJECT_ID
+
 def test_sessions_create_leaves_out_ttl_so_the_server_picks_the_default(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
     agent_vault.sessions.create(access_bundle="release", project_id=PROJECT_ID)
