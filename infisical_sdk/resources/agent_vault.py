@@ -98,7 +98,7 @@ class AgentVaultProxies:
             order_direction: Which way to sort: "asc" or "desc". Defaults to "desc".
             limit: The maximum number of proxies to return (1-100). Defaults to 20.
             offset: How many proxies to skip. Defaults to 0.
-            project_id: The ID of the Agent Vault project to list proxies from. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project to list proxies from.
 
         Returns:
             ListAgentVaultProxiesResponse containing proxies and totalCount. Settings fields are only set for admins.
@@ -136,7 +136,7 @@ class AgentVaultProxies:
             allowed_hosts: Hosts that stay reachable under the "service-hosts" traffic policy even though none of the session's services cover them. A list or a comma-separated string.
             poll_interval: How often, in seconds, the proxy refreshes its sessions and settings (10-300). Defaults to 60.
             description: What the proxy is for, up to 256 characters, without line breaks or other control characters.
-            project_id: The ID of the Agent Vault project to register the proxy in. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project to register the proxy in.
 
         Returns:
             AgentVaultProxyWithTokenResponse containing the proxy and its proxyToken. The token is only returned once.
@@ -273,7 +273,7 @@ class AgentVaultSessions:
             search: Match sessions by label, actor name, actor email, the name or email of the user a session was started on behalf of, or access bundle name.
             limit: The maximum number of sessions to return (1-100). Defaults to 20.
             offset: How many sessions to skip. Defaults to 0.
-            project_id: The ID of the Agent Vault project to list sessions from. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project to list sessions from.
 
         Returns:
             ListAgentVaultSessionsResponse containing sessions and totalCount.
@@ -343,7 +343,7 @@ class AgentVaultSessions:
             on_behalf_of_user_email: The email address of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_id.
             on_behalf_of_user_id: The ID of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_email.
             services: Services the session carries itself, instead of or beside its access bundle's: up to 20 dicts with the API's field names, such as {"type": "http", "hostPattern": "api.github.com", "credential": {"type": "bearer", "value": token}}. Only Agent Vault admins can send them. Each has the same fields as a service in an access bundle, except that its name is optional, its values can't use variables, it can't use OAuth or member-provided values, and an MCP server can't be limited to some of its tools. To limit an MCP server's tools, add it to an access bundle instead.
-            project_id: The ID of the Agent Vault project to create the session in. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project to create the session in.
 
         Returns:
             The created session, including its token. The token is only returned once. Its services leave out their tokens, passwords and values.
@@ -444,7 +444,7 @@ class AgentVaultAccessBundles:
             order_direction: Which way to sort: "asc" or "desc". Defaults to "desc".
             limit: The maximum number of access bundles to return (1-100). Defaults to 20.
             offset: How many access bundles to skip. Defaults to 0.
-            project_id: The ID of the Agent Vault project to list access bundles from. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project to list access bundles from.
 
         Returns:
             ListAgentVaultAccessBundlesResponse containing accessBundles and totalCount.
@@ -498,7 +498,7 @@ class AgentVaultAccessBundles:
         Args:
             name: The name of the access bundle (a slug, at most 64 characters).
             description: What the access bundle is for, up to 256 characters, without line breaks or other control characters.
-            project_id: The ID of the Agent Vault project to create the access bundle in. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project to create the access bundle in.
 
         Returns:
             The created access bundle.
@@ -718,7 +718,7 @@ class AgentVaultDelegations:
             machine_identity_ids: Only return the delegations of these machine identities, up to 100.
             limit: The maximum number of delegations to return (1-100). Defaults to 100.
             offset: How many delegations to skip. Defaults to 0.
-            project_id: The ID of the Agent Vault project to list delegations from. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project to list delegations from.
 
         Returns:
             ListAgentVaultDelegationsResponse containing delegations and totalCount. missingAccessBundles isn't set on these delegations; call get for it.
@@ -743,7 +743,7 @@ class AgentVaultDelegations:
 
         Args:
             machine_identity_id: The ID of the machine identity.
-            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project the delegation belongs to.
 
         Returns:
             The delegation. missingAccessBundles lists the access bundles that the users it covers can use and the machine identity can't, so the machine identity can't create sessions over them. They're empty when a machine identity that isn't an admin gets its own delegation.
@@ -770,7 +770,7 @@ class AgentVaultDelegations:
             scope: AgentVaultDelegationScope.ALL_MEMBERS ("all-members") for every Agent Vault member, admins included, or AgentVaultDelegationScope.SELECTED ("selected") for only the users and groups you name.
             user_ids: With the "selected" scope, the users the machine identity can act on behalf of, up to 100. Each must be a member of Agent Vault. For a user who's in Agent Vault only through a group, name the group instead.
             group_ids: With the "selected" scope, the groups whose members the machine identity can act on behalf of, up to 100. Each must be a member of Agent Vault.
-            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project the delegation belongs to.
 
         Returns:
             The saved delegation, with missingAccessBundles.
@@ -795,7 +795,7 @@ class AgentVaultDelegations:
 
         Args:
             machine_identity_id: The ID of the machine identity.
-            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project the delegation belongs to.
 
         Returns:
             The deleted delegation. missingAccessBundles isn't set.
@@ -822,7 +822,7 @@ class AgentVaultDelegations:
             machine_identity_id: The ID of the machine identity.
             user_ids: The users to add, up to 100. Each must be a member of Agent Vault. Users the delegation already names are skipped.
             group_ids: The groups to add, up to 100. Each must be a member of Agent Vault. Groups the delegation already names are skipped.
-            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project the delegation belongs to.
 
         Returns:
             The delegation after the change, with missingAccessBundles.
@@ -853,7 +853,7 @@ class AgentVaultDelegations:
             machine_identity_id: The ID of the machine identity.
             user_ids: The users to take out, up to 100. Users the delegation doesn't name are skipped.
             group_ids: The groups to take out, up to 100. Groups the delegation doesn't name are skipped.
-            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project the delegation belongs to.
 
         Returns:
             The delegation after the change, with missingAccessBundles, or None if it no longer names anyone.
@@ -890,7 +890,7 @@ class AgentVaultDelegations:
             search: Match users by name, username or email address, and groups by name.
             limit: The maximum number of users and groups to return (1-100). Defaults to 20.
             offset: How many users and groups to skip. Defaults to 0.
-            project_id: The ID of the Agent Vault project the delegation belongs to. Without it, Infisical uses the organization's original Agent Vault project, which later versions will stop doing.
+            project_id: The ID of the Agent Vault project the delegation belongs to.
 
         Returns:
             ListAgentVaultMembersResponse containing the users and groups in members, and totalCount.
