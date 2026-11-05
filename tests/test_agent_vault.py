@@ -56,6 +56,7 @@ INLINE_SERVICE = {
     "customHeaders": [{"name": "X-Team", "prefix": ""}],
     "substitutions": [],
 }
+PROJECT_ID = "4d6f8a1c-2e3b-4c5d-9e7f-1a2b3c4d5e6f"
 MACHINE_IDENTITY_ID = "9c4b2a1d-3e5f-4a6b-8c7d-2e1f0a9b8c7d"
 GROUP_ID = "7b1e4f2a-9c3d-4a6b-8e5f-1d2c3b4a5e6f"
 SERVICE_ID = "3a5c7e9b-2d4f-4a6c-8e1b-5d7f9a2c4e6b"
@@ -93,7 +94,7 @@ def test_proxies_update_leaves_out_values_you_do_not_pass(api, agent_vault, json
 
 def test_proxies_create_sends_and_reads_the_description(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"proxy": dict(PROXY, description="Edge traffic"), "proxyToken": "token"})
-    created = agent_vault.proxies.create(name="edge-proxy", description="Edge traffic")
+    created = agent_vault.proxies.create(name="edge-proxy", description="Edge traffic", project_id=PROJECT_ID)
     assert api.session.post.call_args.kwargs["json"]["description"] == "Edge traffic"
     assert created.proxy.description == "Edge traffic"
 
@@ -116,9 +117,9 @@ def test_sessions_update_always_sends_the_label(api, agent_vault, json_response,
 
 
 @pytest.mark.parametrize("create", [
-    lambda agent_vault: agent_vault.sessions.create(access_bundle="release"),
-    lambda agent_vault: agent_vault.proxies.create(name="edge-proxy"),
-    lambda agent_vault: agent_vault.access_bundles.create(name="release"),
+    lambda agent_vault: agent_vault.sessions.create(access_bundle="release", project_id=PROJECT_ID),
+    lambda agent_vault: agent_vault.proxies.create(name="edge-proxy", project_id=PROJECT_ID),
+    lambda agent_vault: agent_vault.access_bundles.create(name="release", project_id=PROJECT_ID),
 ], ids=["sessions.create", "proxies.create", "access_bundles.create"])
 def test_creates_are_not_retried_once_the_request_may_have_reached_the_server(api, agent_vault, create):
     api.session.post.side_effect = requests.exceptions.ReadTimeout()
@@ -130,7 +131,7 @@ def test_creates_are_not_retried_once_the_request_may_have_reached_the_server(ap
 @pytest.mark.parametrize("allowed_hosts", [[], ""], ids=["empty list", "empty string"])
 def test_proxies_create_leaves_out_empty_allowed_hosts(api, agent_vault, json_response, allowed_hosts):
     api.session.post.return_value = json_response({"proxy": PROXY, "proxyToken": "token"})
-    agent_vault.proxies.create(name="edge-proxy", allowed_hosts=allowed_hosts)
+    agent_vault.proxies.create(name="edge-proxy", allowed_hosts=allowed_hosts, project_id=PROJECT_ID)
     assert "allowedHosts" not in api.session.post.call_args.kwargs["json"]
 
 
@@ -163,15 +164,15 @@ def test_sessions_get_keeps_the_name_of_a_deleted_access_bundle(api, agent_vault
 def test_sessions_create_sends_one_access_bundle(api, agent_vault, json_response):
     created = {"id": SESSION["id"], "token": "agv_token", "createdAt": SESSION["createdAt"], "accessBundle": SESSION["accessBundle"]}
     api.session.post.return_value = json_response({"session": created})
-    session = agent_vault.sessions.create(access_bundle="release", ttl="1h")
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "ttl": "1h"}
+    session = agent_vault.sessions.create(access_bundle="release", ttl="1h", project_id=PROJECT_ID)
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "ttl": "1h", "projectId": PROJECT_ID}
     assert session.accessBundle.name == "release"
 
 
 def test_sessions_create_leaves_out_ttl_so_the_server_picks_the_default(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
-    agent_vault.sessions.create(access_bundle="release")
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release"}
+    agent_vault.sessions.create(access_bundle="release", project_id=PROJECT_ID)
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "projectId": PROJECT_ID}
 
 
 @pytest.mark.parametrize("kwargs, on_behalf_of", [
@@ -181,14 +182,14 @@ def test_sessions_create_leaves_out_ttl_so_the_server_picks_the_default(api, age
 ], ids=["email", "id", "empty email"])
 def test_sessions_create_names_the_user_it_acts_for(api, agent_vault, json_response, kwargs, on_behalf_of):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
-    agent_vault.sessions.create(access_bundle="release", **kwargs)
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "onBehalfOf": on_behalf_of}
+    agent_vault.sessions.create(access_bundle="release", project_id=PROJECT_ID, **kwargs)
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "onBehalfOf": on_behalf_of, "projectId": PROJECT_ID}
 
 
 def test_sessions_create_still_takes_the_access_bundle_first(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
-    agent_vault.sessions.create("release", "1h")
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "ttl": "1h"}
+    agent_vault.sessions.create("release", "1h", project_id=PROJECT_ID)
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "ttl": "1h", "projectId": PROJECT_ID}
 
 
 def test_sessions_create_rejects_both_a_user_email_and_a_user_id(api, agent_vault):
@@ -197,6 +198,7 @@ def test_sessions_create_rejects_both_a_user_email_and_a_user_id(api, agent_vaul
             access_bundle="release",
             on_behalf_of_user_email=ON_BEHALF_OF["email"],
             on_behalf_of_user_id=ON_BEHALF_OF["id"],
+            project_id=PROJECT_ID,
         )
     api.session.post.assert_not_called()
 
@@ -211,21 +213,21 @@ def test_sessions_get_reads_the_user_a_session_acts_for(api, agent_vault, json_r
 
 def test_access_bundles_list_sends_booleans_the_way_the_api_reads_them(api, agent_vault, json_response):
     api.session.get.return_value = json_response({"accessBundles": [], "totalCount": 0})
-    agent_vault.access_bundles.list(requires_setup=True, granted=False)
+    agent_vault.access_bundles.list(requires_setup=True, granted=False, project_id=PROJECT_ID)
     params = api.session.get.call_args.kwargs["params"]
     assert (params["requiresSetup"], params["granted"]) == ("true", "false")
 
 
 def test_access_bundles_list_names_the_user_a_session_would_act_for(api, agent_vault, json_response):
     api.session.get.return_value = json_response({"accessBundles": [], "totalCount": 0})
-    agent_vault.access_bundles.list(on_behalf_of_user_email=ON_BEHALF_OF["email"])
+    agent_vault.access_bundles.list(on_behalf_of_user_email=ON_BEHALF_OF["email"], project_id=PROJECT_ID)
     params = api.session.get.call_args.kwargs["params"]
     assert (params["onBehalfOfUserEmail"], params["onBehalfOfUserId"]) == (ON_BEHALF_OF["email"], None)
 
 
 def test_access_bundles_list_rejects_both_a_user_email_and_a_user_id(api, agent_vault):
     with pytest.raises(ValueError, match="not both"):
-        agent_vault.access_bundles.list(on_behalf_of_user_email=ON_BEHALF_OF["email"], on_behalf_of_user_id=ON_BEHALF_OF["id"])
+        agent_vault.access_bundles.list(on_behalf_of_user_email=ON_BEHALF_OF["email"], on_behalf_of_user_id=ON_BEHALF_OF["id"], project_id=PROJECT_ID)
     api.session.get.assert_not_called()
 
 
@@ -233,7 +235,7 @@ def test_access_bundles_list_reads_the_services_requiring_setup(api, agent_vault
     listed = dict(BUNDLE, serviceCount=1, memberCount=2, hostPatterns=["api.github.com"],
                   servicesRequiringSetup=[{"id": SERVICE_ID, "name": "github"}])
     api.session.get.return_value = json_response({"accessBundles": [listed], "totalCount": 1})
-    bundle = agent_vault.access_bundles.list().accessBundles[0]
+    bundle = agent_vault.access_bundles.list(project_id=PROJECT_ID).accessBundles[0]
     assert [(service.id, service.name) for service in bundle.servicesRequiringSetup] == [(SERVICE_ID, "github")]
     assert bundle.services is None
 
@@ -269,13 +271,13 @@ def test_access_bundles_grant_and_revoke_send_only_the_grantees_you_name(api, ag
 
 def test_delegations_set_puts_the_scope_value(api, agent_vault, json_response):
     api.session.put.return_value = json_response({"delegation": DELEGATION})
-    agent_vault.delegations.set(MACHINE_IDENTITY_ID, AgentVaultDelegationScope.SELECTED, group_ids=[GROUP_ID])
+    agent_vault.delegations.set(MACHINE_IDENTITY_ID, AgentVaultDelegationScope.SELECTED, group_ids=[GROUP_ID], project_id=PROJECT_ID)
     assert api.session.put.call_args.kwargs["json"] == {"scope": "selected", "groupIds": [GROUP_ID]}
 
 
 def test_delegations_get_reads_users_groups_and_missing_access_bundles(api, agent_vault, json_response):
     api.session.get.return_value = json_response({"delegation": DELEGATION})
-    delegation = agent_vault.delegations.get(MACHINE_IDENTITY_ID)
+    delegation = agent_vault.delegations.get(MACHINE_IDENTITY_ID, project_id=PROJECT_ID)
     assert delegation.machineIdentity.name == "slack-bot"
     assert [bundle.name for bundle in delegation.users[0].missingAccessBundles] == ["release"]
     assert (delegation.groups[0].name, delegation.groups[0].missingAccessBundles) == ("Engineering", [])
@@ -285,7 +287,7 @@ def test_delegations_list_joins_the_machine_identity_ids(api, agent_vault, json_
     other_machine_identity_id = "2f6e8a4c-1b3d-4c5e-9f7a-6b8c0d2e4f1a"
     listed = {key: value for key, value in DELEGATION.items() if key != "missingAccessBundles"}
     api.session.get.return_value = json_response({"delegations": [listed], "totalCount": 1})
-    delegations = agent_vault.delegations.list(machine_identity_ids=[MACHINE_IDENTITY_ID, other_machine_identity_id])
+    delegations = agent_vault.delegations.list(machine_identity_ids=[MACHINE_IDENTITY_ID, other_machine_identity_id], project_id=PROJECT_ID)
     expected = f"{MACHINE_IDENTITY_ID},{other_machine_identity_id}"
     assert api.session.get.call_args.kwargs["params"]["machineIdentityIds"] == expected
     assert delegations.delegations[0].missingAccessBundles is None
@@ -293,13 +295,13 @@ def test_delegations_list_joins_the_machine_identity_ids(api, agent_vault, json_
 
 def test_delegations_remove_subjects_returns_none_once_the_last_one_is_gone(api, agent_vault, json_response):
     api.session.delete.return_value = json_response({"delegation": None})
-    assert agent_vault.delegations.remove_subjects(MACHINE_IDENTITY_ID, user_ids=[ON_BEHALF_OF["id"]]) is None
+    assert agent_vault.delegations.remove_subjects(MACHINE_IDENTITY_ID, user_ids=[ON_BEHALF_OF["id"]], project_id=PROJECT_ID) is None
     assert api.session.delete.call_args.kwargs["json"] == {"userIds": [ON_BEHALF_OF["id"]]}
 
 
 def test_delegations_list_available_subjects_sends_the_actor_type_value(api, agent_vault, json_response):
     api.session.get.return_value = json_response({"members": [], "totalCount": 0})
-    agent_vault.delegations.list_available_subjects(MACHINE_IDENTITY_ID, actor_type=AgentVaultMemberType.GROUP)
+    agent_vault.delegations.list_available_subjects(MACHINE_IDENTITY_ID, actor_type=AgentVaultMemberType.GROUP, project_id=PROJECT_ID)
     assert api.session.get.call_args.kwargs["params"]["actorType"] == "group"
 
 
@@ -310,7 +312,7 @@ def test_proxies_send_either_name_of_service_hosts_as_bundle_hosts_which_every_v
         api, agent_vault, json_response, traffic_policy):
     api.session.post.return_value = json_response({"proxy": PROXY, "proxyToken": "token"})
     api.session.patch.return_value = json_response({"proxy": PROXY})
-    agent_vault.proxies.create(name="edge-proxy", traffic_policy=traffic_policy)
+    agent_vault.proxies.create(name="edge-proxy", traffic_policy=traffic_policy, project_id=PROJECT_ID)
     agent_vault.proxies.update(PROXY["id"], traffic_policy=traffic_policy)
     assert api.session.post.call_args.kwargs["json"]["trafficPolicy"] == "bundle-hosts"
     assert api.session.patch.call_args.kwargs["json"] == {"trafficPolicy": "bundle-hosts"}
@@ -320,15 +322,15 @@ def test_proxies_send_either_name_of_service_hosts_as_bundle_hosts_which_every_v
                          ids=["default", "ANY_HOST", "any-host"])
 def test_proxies_create_sends_any_host_as_it_is(api, agent_vault, json_response, kwargs):
     api.session.post.return_value = json_response({"proxy": PROXY, "proxyToken": "token"})
-    agent_vault.proxies.create(name="edge-proxy", **kwargs)
+    agent_vault.proxies.create(name="edge-proxy", project_id=PROJECT_ID, **kwargs)
     assert api.session.post.call_args.kwargs["json"]["trafficPolicy"] == "any-host"
 
 
 @pytest.mark.parametrize("reported", ["service-hosts", "bundle-hosts"], ids=["current version", "version before the rename"])
 @pytest.mark.parametrize("verb, payload, call", [
-    ("get", lambda proxy: {"proxies": [proxy], "totalCount": 1}, lambda agent_vault: agent_vault.proxies.list().proxies[0]),
+    ("get", lambda proxy: {"proxies": [proxy], "totalCount": 1}, lambda agent_vault: agent_vault.proxies.list(project_id=PROJECT_ID).proxies[0]),
     ("post", lambda proxy: {"proxy": proxy, "proxyToken": "token"},
-     lambda agent_vault: agent_vault.proxies.create(name="edge-proxy").proxy),
+     lambda agent_vault: agent_vault.proxies.create(name="edge-proxy", project_id=PROJECT_ID).proxy),
     ("patch", lambda proxy: {"proxy": proxy}, lambda agent_vault: agent_vault.proxies.update(PROXY["id"], poll_interval=30)),
     ("post", lambda proxy: {"proxy": proxy, "proxyToken": "token"},
      lambda agent_vault: agent_vault.proxies.rotate_token(PROXY["id"]).proxy),
@@ -344,7 +346,7 @@ def test_proxies_report_either_name_as_service_hosts(api, agent_vault, json_resp
 
 def test_proxies_list_leaves_the_traffic_policy_unset_for_a_member(api, agent_vault, json_response):
     api.session.get.return_value = json_response({"proxies": [PROXY], "totalCount": 1})
-    assert agent_vault.proxies.list().proxies[0].trafficPolicy is None
+    assert agent_vault.proxies.list(project_id=PROJECT_ID).proxies[0].trafficPolicy is None
 
 
 def test_traffic_policy_old_name_is_the_same_member():
@@ -358,20 +360,20 @@ def test_traffic_policy_old_name_is_the_same_member():
 
 def test_sessions_create_sends_services_without_an_access_bundle(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token", services=[INLINE_SERVICE])})
-    agent_vault.sessions.create(services=[INLINE_SERVICE_INPUT])
-    assert api.session.post.call_args.kwargs["json"] == {"services": [INLINE_SERVICE_INPUT]}
+    agent_vault.sessions.create(services=[INLINE_SERVICE_INPUT], project_id=PROJECT_ID)
+    assert api.session.post.call_args.kwargs["json"] == {"services": [INLINE_SERVICE_INPUT], "projectId": PROJECT_ID}
 
 
 def test_sessions_create_sends_an_access_bundle_and_services_together(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token", services=[INLINE_SERVICE])})
-    agent_vault.sessions.create(access_bundle="release", services=[INLINE_SERVICE_INPUT])
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "services": [INLINE_SERVICE_INPUT]}
+    agent_vault.sessions.create(access_bundle="release", services=[INLINE_SERVICE_INPUT], project_id=PROJECT_ID)
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "services": [INLINE_SERVICE_INPUT], "projectId": PROJECT_ID}
 
 
 def test_sessions_create_sends_an_empty_access_bundle_name_so_the_server_rejects_it(api, agent_vault, json_response):
     api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
-    agent_vault.sessions.create(access_bundle="")
-    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": ""}
+    agent_vault.sessions.create(access_bundle="", project_id=PROJECT_ID)
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "", "projectId": PROJECT_ID}
 
 
 def test_sessions_read_services_as_the_api_sends_them(api, agent_vault, json_response):
@@ -382,9 +384,9 @@ def test_sessions_read_services_as_the_api_sends_them(api, agent_vault, json_res
         json_response({"sessions": [session], "totalCount": 1}),
     ]
     expected = [AgentVaultInlineService(**INLINE_SERVICE)]
-    assert agent_vault.sessions.create(services=[INLINE_SERVICE_INPUT]).services == expected
+    assert agent_vault.sessions.create(services=[INLINE_SERVICE_INPUT], project_id=PROJECT_ID).services == expected
     assert agent_vault.sessions.get(SESSION["id"]).services == expected
-    assert agent_vault.sessions.list().sessions[0].services == expected
+    assert agent_vault.sessions.list(project_id=PROJECT_ID).sessions[0].services == expected
 
 
 def test_sessions_from_an_infisical_version_without_inline_services_have_an_empty_list_of_them(
@@ -396,10 +398,10 @@ def test_sessions_from_an_infisical_version_without_inline_services_have_an_empt
         json_response({"session": older}),
         json_response({"sessions": [older], "totalCount": 1}),
     ]
-    assert agent_vault.sessions.create(access_bundle="release").services == []
+    assert agent_vault.sessions.create(access_bundle="release", project_id=PROJECT_ID).services == []
     assert agent_vault.sessions.update(SESSION["id"], None).services == []
     assert agent_vault.sessions.get(SESSION["id"]).services == []
-    assert agent_vault.sessions.list().sessions[0].services == []
+    assert agent_vault.sessions.list(project_id=PROJECT_ID).sessions[0].services == []
 
 
 @pytest.mark.parametrize("status_code, payload, explanation", [
@@ -424,7 +426,7 @@ def test_sessions_create_keeps_the_servers_explanation_when_it_refuses_services(
         api, agent_vault, json_response, status_code, payload, explanation):
     api.session.post.return_value = json_response(payload, status_code)
     with pytest.raises(APIError) as raised:
-        agent_vault.sessions.create(services=[INLINE_SERVICE_INPUT])
+        agent_vault.sessions.create(services=[INLINE_SERVICE_INPUT], project_id=PROJECT_ID)
     assert raised.value.status_code == status_code
     assert explanation in str(raised.value)
     assert api.session.post.call_count == 1
@@ -511,8 +513,8 @@ def test_api_error_is_exported_from_the_package_root():
 @pytest.mark.parametrize("call", [
     lambda agent_vault: agent_vault.proxies.delete(PROXY["id"]),
     lambda agent_vault: agent_vault.access_bundles.delete(BUNDLE["id"]),
-    lambda agent_vault: agent_vault.delegations.delete(MACHINE_IDENTITY_ID),
-    lambda agent_vault: agent_vault.delegations.remove_subjects(MACHINE_IDENTITY_ID, user_ids=[ON_BEHALF_OF["id"]]),
+    lambda agent_vault: agent_vault.delegations.delete(MACHINE_IDENTITY_ID, project_id=PROJECT_ID),
+    lambda agent_vault: agent_vault.delegations.remove_subjects(MACHINE_IDENTITY_ID, user_ids=[ON_BEHALF_OF["id"]], project_id=PROJECT_ID),
 ], ids=["proxies.delete", "access_bundles.delete", "delegations.delete", "delegations.remove_subjects"])
 def test_deletes_are_not_retried_once_the_request_may_have_reached_the_server(api, agent_vault, call):
     # After a lost response, a retry would fail with a 404 for a delete that worked.
@@ -521,8 +523,6 @@ def test_deletes_are_not_retried_once_the_request_may_have_reached_the_server(ap
         call(agent_vault)
     assert api.session.delete.call_count == 1
 
-
-PROJECT_ID = "4d6f8a1c-2e3b-4c5d-9e7f-1a2b3c4d5e6f"
 
 LISTS = [
     ("proxies.list", lambda agent_vault, **kwargs: agent_vault.proxies.list(**kwargs), {"proxies": [], "totalCount": 0}),
@@ -566,27 +566,12 @@ def test_lists_send_the_project_id_in_the_query(api, agent_vault, json_response,
     assert api.session.get.call_args.kwargs["params"]["projectId"] == PROJECT_ID
 
 
-@pytest.mark.parametrize("call, payload", [(call, payload) for _, call, payload in LISTS], ids=[name for name, _, _ in LISTS])
-def test_lists_leave_out_the_project_id_so_the_server_picks_the_project(api, agent_vault, json_response, call, payload):
-    api.session.get.return_value = json_response(payload)
-    call(agent_vault)
-    # requests drops query parameters whose value is None.
-    assert api.session.get.call_args.kwargs["params"].get("projectId") is None
-
-
 @pytest.mark.parametrize("call, payload", [(call, payload) for _, call, payload in CREATES], ids=[name for name, _, _ in CREATES])
 def test_creates_send_the_project_id_in_the_body(api, agent_vault, json_response, call, payload):
     api.session.post.return_value = json_response(payload)
     call(agent_vault, project_id=PROJECT_ID)
     assert api.session.post.call_args.kwargs["json"]["projectId"] == PROJECT_ID
     assert api.session.post.call_args.kwargs.get("params") is None
-
-
-@pytest.mark.parametrize("call, payload", [(call, payload) for _, call, payload in CREATES], ids=[name for name, _, _ in CREATES])
-def test_creates_leave_out_the_project_id_so_the_server_picks_the_project(api, agent_vault, json_response, call, payload):
-    api.session.post.return_value = json_response(payload)
-    call(agent_vault)
-    assert "projectId" not in api.session.post.call_args.kwargs["json"]
 
 
 @pytest.mark.parametrize("verb, call", [(verb, call) for _, verb, call in DELEGATION_WRITES],
@@ -601,7 +586,17 @@ def test_delegation_writes_send_the_project_id_in_the_query_and_not_the_body(api
     assert "projectId" not in (sent["json"] or {})
 
 
-def test_a_project_id_left_out_of_the_query_is_not_sent():
-    prepared = requests.Request("PUT", "https://infisical.example.com/api/v1/agent-vault/delegations/id",
-                                params={"projectId": None}).prepare()
-    assert prepared.url == "https://infisical.example.com/api/v1/agent-vault/delegations/id"
+@pytest.mark.parametrize("call", [call for _, call, _ in LISTS + CREATES] + [call for _, _, call in DELEGATION_WRITES],
+                         ids=[name for name, _, _ in LISTS + CREATES + DELEGATION_WRITES])
+def test_the_project_id_is_required(api, agent_vault, call):
+    with pytest.raises(TypeError, match="project_id"):
+        call(agent_vault)
+    for verb in ("get", "post", "put", "delete"):
+        getattr(api.session, verb).assert_not_called()
+
+
+def test_the_project_id_cannot_be_passed_by_position(api, agent_vault):
+    # Keyword-only, so a positional argument can't land in project_id by mistake.
+    with pytest.raises(TypeError):
+        agent_vault.delegations.get(MACHINE_IDENTITY_ID, PROJECT_ID)
+    api.session.get.assert_not_called()

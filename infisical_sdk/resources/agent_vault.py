@@ -89,7 +89,8 @@ class AgentVaultProxies:
             order_direction: str = "desc",
             limit: int = 20,
             offset: int = 0,
-            project_id: Optional[str] = None) -> ListAgentVaultProxiesResponse:
+            *,
+            project_id: str) -> ListAgentVaultProxiesResponse:
         """List an Agent Vault project's proxies.
 
         Args:
@@ -127,7 +128,8 @@ class AgentVaultProxies:
             allowed_hosts: Optional[Union[str, List[str]]] = None,
             poll_interval: int = 60,
             description: Optional[str] = None,
-            project_id: Optional[str] = None) -> AgentVaultProxyWithTokenResponse:
+            *,
+            project_id: str) -> AgentVaultProxyWithTokenResponse:
         """Register an Agent Vault proxy and issue its proxy token.
 
         Args:
@@ -264,7 +266,8 @@ class AgentVaultSessions:
             search: Optional[str] = None,
             limit: int = 20,
             offset: int = 0,
-            project_id: Optional[str] = None) -> ListAgentVaultSessionsResponse:
+            *,
+            project_id: str) -> ListAgentVaultSessionsResponse:
         """List Agent Vault sessions.
 
         Args:
@@ -325,7 +328,8 @@ class AgentVaultSessions:
             on_behalf_of_user_email: Optional[str] = None,
             on_behalf_of_user_id: Optional[str] = None,
             services: Optional[List[Dict[str, Any]]] = None,
-            project_id: Optional[str] = None) -> CreatedAgentVaultSession:
+            *,
+            project_id: str) -> CreatedAgentVaultSession:
         """Create an Agent Vault session with an access bundle you can reach, services of its own, or both, for yourself or, as a machine identity with a delegation, on behalf of a user.
 
         Only Agent Vault admins can send services with a session. On behalf of a user, that's your machine identity:
@@ -431,7 +435,8 @@ class AgentVaultAccessBundles:
             order_direction: str = "desc",
             limit: int = 20,
             offset: int = 0,
-            project_id: Optional[str] = None) -> ListAgentVaultAccessBundlesResponse:
+            *,
+            project_id: str) -> ListAgentVaultAccessBundlesResponse:
         """List the Agent Vault access bundles you can reach. Admins reach every access bundle.
 
         Args:
@@ -492,7 +497,8 @@ class AgentVaultAccessBundles:
             self,
             name: str,
             description: Optional[str] = None,
-            project_id: Optional[str] = None) -> AgentVaultAccessBundle:
+            *,
+            project_id: str) -> AgentVaultAccessBundle:
         """Create an Agent Vault access bundle. It's granted to you, unless you're in Agent Vault only through a group.
 
         Args:
@@ -711,7 +717,8 @@ class AgentVaultDelegations:
             machine_identity_ids: Optional[List[str]] = None,
             limit: int = 100,
             offset: int = 0,
-            project_id: Optional[str] = None) -> ListAgentVaultDelegationsResponse:
+            *,
+            project_id: str) -> ListAgentVaultDelegationsResponse:
         """List the machine identities that can create Agent Vault sessions on behalf of users.
 
         Args:
@@ -738,7 +745,7 @@ class AgentVaultDelegations:
 
         return result.data
 
-    def get(self, machine_identity_id: str, project_id: Optional[str] = None) -> AgentVaultDelegation:
+    def get(self, machine_identity_id: str, *, project_id: str) -> AgentVaultDelegation:
         """Get which users a machine identity can create Agent Vault sessions on behalf of. Raises an APIError with status 404 if the machine identity has no delegation.
 
         Args:
@@ -762,7 +769,8 @@ class AgentVaultDelegations:
             scope: Union[AgentVaultDelegationScope, str],
             user_ids: Optional[List[str]] = None,
             group_ids: Optional[List[str]] = None,
-            project_id: Optional[str] = None) -> AgentVaultDelegation:
+            *,
+            project_id: str) -> AgentVaultDelegation:
         """Set which users a machine identity can create Agent Vault sessions on behalf of, replacing any delegation it has.
 
         Args:
@@ -790,7 +798,7 @@ class AgentVaultDelegations:
 
         return result.data.delegation
 
-    def delete(self, machine_identity_id: str, project_id: Optional[str] = None) -> AgentVaultDelegation:
+    def delete(self, machine_identity_id: str, *, project_id: str) -> AgentVaultDelegation:
         """Stop a machine identity from creating Agent Vault sessions on behalf of users. The proxy refuses the sessions it already created on their behalf until a delegation covers those users again, so revoke the sessions to end them for good.
 
         Args:
@@ -815,7 +823,8 @@ class AgentVaultDelegations:
             machine_identity_id: str,
             user_ids: Optional[List[str]] = None,
             group_ids: Optional[List[str]] = None,
-            project_id: Optional[str] = None) -> AgentVaultDelegation:
+            *,
+            project_id: str) -> AgentVaultDelegation:
         """Add users and groups to a machine identity's delegation, keeping the ones it already names. If the machine identity has no delegation, this creates one with the "selected" scope. A delegation to all members can't take users or groups.
 
         Args:
@@ -846,7 +855,8 @@ class AgentVaultDelegations:
             machine_identity_id: str,
             user_ids: Optional[List[str]] = None,
             group_ids: Optional[List[str]] = None,
-            project_id: Optional[str] = None) -> Optional[AgentVaultDelegation]:
+            *,
+            project_id: str) -> Optional[AgentVaultDelegation]:
         """Take users and groups out of a machine identity's delegation. The proxy refuses the sessions it created on behalf of the users you take out until the delegation covers them again, so revoke the sessions to end them for good. Taking out the last user or group removes the delegation.
 
         Args:
@@ -881,7 +891,8 @@ class AgentVaultDelegations:
             search: Optional[str] = None,
             limit: int = 20,
             offset: int = 0,
-            project_id: Optional[str] = None) -> ListAgentVaultMembersResponse:
+            *,
+            project_id: str) -> ListAgentVaultMembersResponse:
         """List the Agent Vault users and groups that can still be added to a machine identity's delegation.
 
         Args:
