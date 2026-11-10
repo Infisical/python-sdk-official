@@ -442,12 +442,42 @@ def test_access_bundles_get_reads_the_tools_an_mcp_service_allows(api, agent_vau
     service = {
         "id": SERVICE_ID, "accessBundleId": BUNDLE["id"], "name": "linear", "type": "mcp",
         "serverUrl": "https://mcp.linear.app/mcp", "transport": "streamable-http", "hostPattern": "mcp.linear.app",
-        "allowedMethods": None, "allowedPathPrefixes": None, "allowedTools": ["list_issues"],
-        "credential": {"type": "bearer", "memberProvidedFields": []}, "customHeaders": [], "substitutions": [],
+        "allowedTools": ["list_issues"],
+        "credential": {"type": "bearer", "memberProvidedFields": []}, "customHeaders": [],
         "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
     }
     api.session.get.return_value = json_response({"accessBundle": dict(BUNDLE, services=[service])})
     assert agent_vault.access_bundles.get(BUNDLE["id"]).services[0].allowedTools == ["list_issues"]
+
+
+def test_access_bundles_get_reads_database_and_ssh_services_without_http_fields(api, agent_vault, json_response):
+    shared = {
+        "accessBundleId": BUNDLE["id"], "description": None, "variableReferences": [], "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
+    }
+    postgres = dict(shared, id=SERVICE_ID, name="orders-db", type="postgres", host="db.internal", port=5432,
+                    database="orders", tls={"enabled": True, "verify": True, "ca": None},
+                    credential={"type": "basic", "memberProvidedFields": []})
+    ssh = dict(shared, id="7d1e3f5a-9b2c-4d6e-8f0a-1b3c5d7e9f2a", name="bastion", type="ssh",
+               host="bastion.internal", port=22, credential={"type": "ssh-key", "hasCertificate": False})
+    api.session.get.return_value = json_response({"accessBundle": dict(BUNDLE, services=[postgres, ssh])})
+    database, server = agent_vault.access_bundles.get(BUNDLE["id"]).services
+    assert (database.host, database.port, database.database) == ("db.internal", 5432, "orders")
+    assert database.tls == {"enabled": True, "verify": True, "ca": None}
+    assert database.hostPattern is None
+    assert (server.host, server.port, server.tls) == ("bastion.internal", 22, None)
+
+
+def test_sessions_read_an_inline_database_service(api, agent_vault, json_response):
+    inline = {
+        "id": INLINE_SERVICE["id"], "name": "orders-db", "description": "Orders replica", "type": "mysql", "host": "db.internal", "port": 3306,
+        "database": "orders", "tls": {"enabled": False, "verify": False, "ca": None},
+        "credential": {"type": "basic"},
+    }
+    api.session.get.return_value = json_response({"session": dict(SESSION, services=[inline])})
+    service = agent_vault.sessions.get(SESSION["id"]).services[0]
+    assert service == AgentVaultInlineService(**inline)
+    assert service.hostPattern is None and service.customHeaders is None
+    assert service.description == "Orders replica"
 
 
 def test_access_bundles_list_grantees_reads_a_pending_organization_membership(api, agent_vault, json_response):
