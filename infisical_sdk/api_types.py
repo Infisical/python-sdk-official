@@ -567,7 +567,7 @@ class AgentVaultSessionAccessBundle(BaseModel):
 
 @dataclass
 class AgentVaultInlineService(BaseModel):
-    """A service sent with an Agent Vault session, without its token, password or values. type is http, mcp, postgres, mysql or ssh, and the API returns only that type's fields: hostPattern, allowedMethods and allowedPathPrefixes for http; serverUrl, transport and hostPattern for mcp; host, port, database and tls for postgres and mysql; host and port for ssh. Its nested settings, such as credential and tls, are left as the API returns them."""
+    """A service sent with an Agent Vault session, without its token, password or values. type is http, mcp, postgres, mysql or ssh, and the API returns only that type's fields: hostPattern, allowedMethods, allowedPathPrefixes, customHeaders and substitutions for http; serverUrl, transport, hostPattern and customHeaders for mcp; host, port, database and tls for postgres and mysql; host and port for ssh. Its nested settings, such as credential and tls, are left as the API returns them."""
     id: str
     name: str
     type: str
@@ -687,7 +687,7 @@ class AgentVaultAccessBundleRef(BaseModel):
 
 @dataclass
 class AgentVaultService(BaseModel):
-    """A service in an Agent Vault access bundle. type is http, mcp, postgres, mysql or ssh, and the API returns only that type's fields: hostPattern, allowedMethods and allowedPathPrefixes for http; serverUrl, transport, hostPattern and allowedTools for mcp; host, port, database and tls for postgres and mysql; host and port for ssh. Its nested settings, such as credential and tls ({"enabled", "verify", "ca"}), are left as the API returns them."""
+    """A service in an Agent Vault access bundle. type is http, mcp, postgres, mysql or ssh, and the API returns only that type's fields: hostPattern, allowedMethods, allowedPathPrefixes, customHeaders and substitutions for http; serverUrl, transport, hostPattern, allowedTools and customHeaders for mcp; host, port, database and tls for postgres and mysql; host and port for ssh. Its nested settings, such as credential and tls ({"enabled", "verify", "ca"}), are left as the API returns them."""
     id: str
     accessBundleId: str
     name: str

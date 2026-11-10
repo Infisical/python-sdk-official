@@ -442,8 +442,8 @@ def test_access_bundles_get_reads_the_tools_an_mcp_service_allows(api, agent_vau
     service = {
         "id": SERVICE_ID, "accessBundleId": BUNDLE["id"], "name": "linear", "type": "mcp",
         "serverUrl": "https://mcp.linear.app/mcp", "transport": "streamable-http", "hostPattern": "mcp.linear.app",
-        "allowedMethods": None, "allowedPathPrefixes": None, "allowedTools": ["list_issues"],
-        "credential": {"type": "bearer", "memberProvidedFields": []}, "customHeaders": [], "substitutions": [],
+        "allowedTools": ["list_issues"],
+        "credential": {"type": "bearer", "memberProvidedFields": []}, "customHeaders": [],
         "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
     }
     api.session.get.return_value = json_response({"accessBundle": dict(BUNDLE, services=[service])})
@@ -452,8 +452,7 @@ def test_access_bundles_get_reads_the_tools_an_mcp_service_allows(api, agent_vau
 
 def test_access_bundles_get_reads_database_and_ssh_services_without_http_fields(api, agent_vault, json_response):
     shared = {
-        "accessBundleId": BUNDLE["id"], "description": None, "customHeaders": [], "substitutions": [],
-        "variableReferences": [], "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
+        "accessBundleId": BUNDLE["id"], "description": None, "variableReferences": [], "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
     }
     postgres = dict(shared, id=SERVICE_ID, name="orders-db", type="postgres", host="db.internal", port=5432,
                     database="orders", tls={"enabled": True, "verify": True, "ca": None},
@@ -472,12 +471,12 @@ def test_sessions_read_an_inline_database_service(api, agent_vault, json_respons
     inline = {
         "id": INLINE_SERVICE["id"], "name": "orders-db", "description": "Orders replica", "type": "mysql", "host": "db.internal", "port": 3306,
         "database": "orders", "tls": {"enabled": False, "verify": False, "ca": None},
-        "credential": {"type": "basic"}, "customHeaders": [], "substitutions": [],
+        "credential": {"type": "basic"},
     }
     api.session.get.return_value = json_response({"session": dict(SESSION, services=[inline])})
     service = agent_vault.sessions.get(SESSION["id"]).services[0]
     assert service == AgentVaultInlineService(**inline)
-    assert service.hostPattern is None
+    assert service.hostPattern is None and service.customHeaders is None
     assert service.description == "Orders replica"
 
 
