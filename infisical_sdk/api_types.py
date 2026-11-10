@@ -571,12 +571,7 @@ class AgentVaultInlineService(BaseModel):
     id: str
     name: str
     type: str
-    description: Optional[str] = None
     hostPattern: Optional[str] = None
-    host: Optional[str] = None
-    port: Optional[int] = None
-    database: Optional[str] = None
-    tls: Optional[Dict[str, Any]] = None
     serverUrl: Optional[str] = None
     transport: Optional[str] = None
     allowedMethods: Optional[List[str]] = None
@@ -584,6 +579,11 @@ class AgentVaultInlineService(BaseModel):
     credential: Optional[Dict[str, Any]] = None
     customHeaders: Optional[List[Dict[str, Any]]] = None
     substitutions: Optional[List[Dict[str, Any]]] = None
+    description: Optional[str] = None
+    host: Optional[str] = None
+    port: Optional[int] = None
+    database: Optional[str] = None
+    tls: Optional[Dict[str, Any]] = None
 
 @dataclass
 class AgentVaultSession(BaseModel):
@@ -692,12 +692,7 @@ class AgentVaultService(BaseModel):
     accessBundleId: str
     name: str
     type: str
-    description: Optional[str] = None
     hostPattern: Optional[str] = None
-    host: Optional[str] = None
-    port: Optional[int] = None
-    database: Optional[str] = None
-    tls: Optional[Dict[str, Any]] = None
     serverUrl: Optional[str] = None
     transport: Optional[str] = None
     allowedMethods: Optional[List[str]] = None
@@ -710,6 +705,11 @@ class AgentVaultService(BaseModel):
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None
     allowedTools: Optional[List[str]] = None
+    description: Optional[str] = None
+    host: Optional[str] = None
+    port: Optional[int] = None
+    database: Optional[str] = None
+    tls: Optional[Dict[str, Any]] = None
 
 @dataclass
 class AgentVaultAccessBundle(BaseModel):
