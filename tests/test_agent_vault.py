@@ -246,16 +246,19 @@ def test_access_bundles_list_reads_the_services_requiring_setup(api, agent_vault
     assert bundle.services is None
 
 
-def test_access_bundles_get_reads_services_and_keeps_their_nested_settings(api, agent_vault, json_response):
+# Servers still send accessBundleId on each service for older SDK releases; this one reads both shapes.
+@pytest.mark.parametrize("legacy", [{}, {"accessBundleId": BUNDLE["id"]}], ids=["current", "with accessBundleId"])
+def test_access_bundles_get_reads_services_and_keeps_their_nested_settings(api, agent_vault, json_response, legacy):
     service = {
         "id": SERVICE_ID, "name": "github", "type": "http",
         "hostPattern": "api.github.com", "credential": {"type": "bearer", "memberProvidedFields": []},
         "customHeaders": [], "substitutions": [], "personalValues": None,
-        "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
+        "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"], **legacy,
     }
     api.session.get.return_value = json_response({"accessBundle": dict(BUNDLE, services=[service])})
     [read] = agent_vault.access_bundles.get(BUNDLE["id"]).services
     assert (read.name, read.credential["type"], read.variableReferences) == ("github", "bearer", None)
+    assert not hasattr(read, "accessBundleId")
 
 
 def test_access_bundles_update_sends_an_empty_description_to_remove_it(api, agent_vault, json_response):
