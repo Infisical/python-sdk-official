@@ -689,7 +689,6 @@ class AgentVaultAccessBundleRef(BaseModel):
 class AgentVaultService(BaseModel):
     """A service in an Agent Vault access bundle. type is http, mcp, postgres, mysql or ssh, and the API returns only that type's fields: hostPattern, allowedMethods, allowedPathPrefixes, customHeaders and substitutions for http; serverUrl, transport, hostPattern, allowedTools and customHeaders for mcp; host, port, database and tls for postgres and mysql; host and port for ssh. Its nested settings, such as credential and tls ({"enabled", "verify", "ca"}), are left as the API returns them."""
     id: str
-    accessBundleId: str
     name: str
     type: str
     hostPattern: Optional[str] = None

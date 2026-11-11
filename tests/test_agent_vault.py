@@ -248,7 +248,7 @@ def test_access_bundles_list_reads_the_services_requiring_setup(api, agent_vault
 
 def test_access_bundles_get_reads_services_and_keeps_their_nested_settings(api, agent_vault, json_response):
     service = {
-        "id": SERVICE_ID, "accessBundleId": BUNDLE["id"], "name": "github", "type": "http",
+        "id": SERVICE_ID, "name": "github", "type": "http",
         "hostPattern": "api.github.com", "credential": {"type": "bearer", "memberProvidedFields": []},
         "customHeaders": [], "substitutions": [], "personalValues": None,
         "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
@@ -440,7 +440,7 @@ def test_sessions_create_keeps_the_servers_explanation_when_it_refuses_services(
 
 def test_access_bundles_get_reads_the_tools_an_mcp_service_allows(api, agent_vault, json_response):
     service = {
-        "id": SERVICE_ID, "accessBundleId": BUNDLE["id"], "name": "linear", "type": "mcp",
+        "id": SERVICE_ID, "name": "linear", "type": "mcp",
         "serverUrl": "https://mcp.linear.app/mcp", "transport": "streamable-http", "hostPattern": "mcp.linear.app",
         "allowedTools": ["list_issues"],
         "credential": {"type": "bearer", "memberProvidedFields": []}, "customHeaders": [],
@@ -452,7 +452,7 @@ def test_access_bundles_get_reads_the_tools_an_mcp_service_allows(api, agent_vau
 
 def test_access_bundles_get_reads_database_and_ssh_services_without_http_fields(api, agent_vault, json_response):
     shared = {
-        "accessBundleId": BUNDLE["id"], "description": None, "variableReferences": [], "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
+        "description": None, "variableReferences": [], "createdAt": BUNDLE["createdAt"], "updatedAt": BUNDLE["updatedAt"],
     }
     postgres = dict(shared, id=SERVICE_ID, name="orders-db", type="postgres", host="db.internal", port=5432,
                     database="orders", tls={"enabled": True, "verify": True, "ca": None},
