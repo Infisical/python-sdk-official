@@ -483,6 +483,26 @@ def test_sessions_read_an_inline_database_service(api, agent_vault, json_respons
     assert service.description == "Orders replica"
 
 
+def test_sessions_send_and_read_an_inline_mcp_servers_tool_list(api, agent_vault, json_response):
+    mcp_input = {
+        "type": "mcp", "name": "deepwiki", "serverUrl": "https://mcp.deepwiki.com/mcp", "transport": "streamable-http",
+        "credential": {"type": "bearer", "value": "mcp-token"}, "allowedTools": ["read_wiki_structure"],
+    }
+    mcp = {
+        "id": INLINE_SERVICE["id"], "name": "deepwiki", "description": None, "type": "mcp",
+        "serverUrl": "https://mcp.deepwiki.com/mcp", "transport": "streamable-http", "hostPattern": "mcp.deepwiki.com",
+        "allowedTools": ["read_wiki_structure"],
+        "credential": {"type": "bearer", "headerName": "Authorization", "headerPrefix": "Bearer"}, "customHeaders": [],
+    }
+    api.session.post.return_value = json_response({"session": dict(SESSION, token="token", services=[mcp])})
+    created = agent_vault.sessions.create(services=[mcp_input], project_id=PROJECT_ID)
+    assert api.session.post.call_args.kwargs["json"] == {"services": [mcp_input], "projectId": PROJECT_ID}
+    assert created.services[0].allowedTools == ["read_wiki_structure"]
+
+    api.session.get.return_value = json_response({"session": dict(SESSION, services=[dict(mcp, allowedTools=None)])})
+    assert agent_vault.sessions.get(SESSION["id"]).services[0].allowedTools is None
+
+
 def test_access_bundles_list_grantees_reads_a_pending_organization_membership(api, agent_vault, json_response):
     grantee = dict({key: ON_BEHALF_OF[key] for key in ("type", "id", "username", "email", "firstName", "lastName")},
                    isOrgMembershipPending=True, grantedAt="2026-10-27T00:00:00.000Z")
