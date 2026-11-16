@@ -70,6 +70,16 @@ def _with_services(session: AgentVaultSession) -> AgentVaultSession:
     return session
 
 
+class _Unset:
+    """Marks an argument that wasn't passed, where None has a meaning of its own."""
+
+    def __repr__(self) -> str:
+        return "<unset>"
+
+
+_UNSET = _Unset()
+
+
 def _check_one_user(on_behalf_of_user_email: Optional[str], on_behalf_of_user_id: Optional[str]) -> None:
     """The API names a user by email address or by ID, not both."""
     if on_behalf_of_user_email is not None and on_behalf_of_user_id is not None:
@@ -328,6 +338,7 @@ class AgentVaultSessions:
             on_behalf_of_user_email: Optional[str] = None,
             on_behalf_of_user_id: Optional[str] = None,
             services: Optional[List[Dict[str, Any]]] = None,
+            metadata: Optional[Dict[str, str]] = None,
             *,
             project_id: str) -> CreatedAgentVaultSession:
         """Create an Agent Vault session with an access bundle you can reach, services of its own, or both, for yourself or, as a machine identity with a delegation, on behalf of a user.
@@ -347,6 +358,7 @@ class AgentVaultSessions:
             on_behalf_of_user_email: The email address of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_id.
             on_behalf_of_user_id: The ID of the user to start the session on behalf of. Can't be combined with on_behalf_of_user_email.
             services: Services the session carries itself, instead of or beside its access bundle's: up to 20 dicts with the API's field names, such as {"type": "http", "hostPattern": "api.github.com", "credential": {"type": "bearer", "value": token}}. Only Agent Vault admins can send them. Each has the same fields as a service in an access bundle, except that its name is optional for HTTP and MCP services (database and SSH services need one), its values can't use variables, and it can't use OAuth or member-provided values. To limit an MCP server to some of its tools, send their names in allowedTools, which needs an Infisical version that accepts a tool list on a session's services.
+            metadata: Key-value pairs to tag the session with, such as {"runId": "8812"}. Up to 20 keys. A key is 1 to 255 characters and a value up to 1020, without line breaks, tabs, or invisible characters. Keys that match once trimmed are rejected.
             project_id: The ID of the Agent Vault project to create the session in.
 
         Returns:
@@ -366,6 +378,7 @@ class AgentVaultSessions:
             "services": services,
             "ttl": ttl,
             "label": label,
+            "metadata": metadata,
             "onBehalfOf": on_behalf_of,
             "projectId": project_id,
         }
@@ -378,19 +391,25 @@ class AgentVaultSessions:
 
         return result.data.session
 
-    def update(self, session_id: str, label: Optional[str]) -> AgentVaultSession:
-        """Update the label of an Agent Vault session. This also works after the session expires or is revoked.
+    def update(
+            self,
+            session_id: str,
+            label: Union[str, None, _Unset] = _UNSET,
+            *,
+            metadata: Optional[Dict[str, str]] = None) -> AgentVaultSession:
+        """Update the label or metadata of an Agent Vault session. Pass label, metadata, or both; a value you leave out stays as it is. This also works after the session expires or is revoked, but not once the session's owner, or the user it was started on behalf of, is deleted.
 
         Args:
             session_id: The ID of the session to update.
-            label: The new label for the session, up to 128 characters, without line breaks, tabs, or invisible characters. Pass None or an empty string to remove the label. You can't change the label once the session's owner, or the user it was started on behalf of, is deleted.
+            label: The new label for the session, up to 128 characters, without line breaks, tabs, or invisible characters. Pass None or an empty string to remove the label.
+            metadata: The session's new metadata, which replaces all of it, such as {"runId": "8812"}. Pass {} to remove it. Up to 20 keys. A key is 1 to 255 characters and a value up to 1020, without line breaks, tabs, or invisible characters. Keys that match once trimmed are rejected.
 
         Returns:
             The updated session.
         """
-        request_body = {
-            "label": label,
-        }
+        request_body: Dict[str, Any] = {"metadata": metadata}
+        if not isinstance(label, _Unset):
+            request_body["label"] = label
 
         result = self.requests.patch(
             path=f"/api/v1/agent-vault/sessions/{_segment(session_id)}",
