@@ -276,6 +276,7 @@ class AgentVaultSessions:
             search: Optional[str] = None,
             limit: int = 20,
             offset: int = 0,
+            metadata: Optional[Dict[str, str]] = None,
             *,
             project_id: str) -> ListAgentVaultSessionsResponse:
         """List Agent Vault sessions.
@@ -286,6 +287,7 @@ class AgentVaultSessions:
             search: Match sessions by label, actor name, actor email, the name or email of the user a session was started on behalf of, or access bundle name.
             limit: The maximum number of sessions to return (1-100). Defaults to 20.
             offset: How many sessions to skip. Defaults to 0.
+            metadata: Only return sessions whose metadata matches every one of these key-value pairs exactly, such as {"runId": "8812"}. Up to 20 pairs.
             project_id: The ID of the Agent Vault project to list sessions from.
 
         Returns:
@@ -299,6 +301,7 @@ class AgentVaultSessions:
             "scope": scope.value if isinstance(scope, AgentVaultSessionScope) else scope,
             "status": status,
             "search": search,
+            "metadata": [f"{key}={value}" for key, value in metadata.items()] if metadata else None,
             "limit": limit,
             "offset": offset,
             "projectId": project_id,

@@ -252,6 +252,26 @@ def test_sessions_get_reads_the_user_a_session_acts_for(api, agent_vault, json_r
     assert agent_vault.sessions.get(SESSION["id"]).onBehalfOf == expected
 
 
+def test_sessions_list_sends_each_metadata_pair_as_its_own_metadata_parameter(api, agent_vault, json_response):
+    api.session.get.return_value = json_response({"sessions": [], "totalCount": 0})
+    agent_vault.sessions.list(metadata={"runId": "8812", "env": "prod"}, project_id=PROJECT_ID)
+    call = api.session.get.call_args
+    prepared = requests.Request("GET", call.args[0], params=call.kwargs["params"]).prepare()
+    assert prepared.url == (
+        "https://infisical.example.com/api/v1/agent-vault/sessions"
+        f"?scope=mine&metadata=runId%3D8812&metadata=env%3Dprod&limit=20&offset=0&projectId={PROJECT_ID}"
+    )
+
+
+@pytest.mark.parametrize("metadata", [None, {}])
+def test_sessions_list_leaves_out_an_empty_metadata_filter(api, agent_vault, json_response, metadata):
+    api.session.get.return_value = json_response({"sessions": [], "totalCount": 0})
+    agent_vault.sessions.list(metadata=metadata, project_id=PROJECT_ID)
+    call = api.session.get.call_args
+    prepared = requests.Request("GET", call.args[0], params=call.kwargs["params"]).prepare()
+    assert "metadata" not in prepared.url
+
+
 def test_access_bundles_list_sends_booleans_the_way_the_api_reads_them(api, agent_vault, json_response):
     api.session.get.return_value = json_response({"accessBundles": [], "totalCount": 0})
     agent_vault.access_bundles.list(requires_setup=True, granted=False, project_id=PROJECT_ID)
