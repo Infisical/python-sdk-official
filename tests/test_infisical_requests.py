@@ -7,54 +7,76 @@ from infisical_sdk import InfisicalSDKClient
 from infisical_sdk.infisical_requests import InfisicalRequests
 
 
-def request_kwargs(api, method):
-    with mock.patch.object(api.session, method) as send:
-        send.return_value.headers = {}
-        getattr(api, method)("/path", dict)
-    return send.call_args.kwargs
+def test_patch_leaves_out_none_values(api, json_response):
+    api.session.patch.return_value = json_response({})
+    api.patch(path="/api/v1/example", model=dict, json={"name": "edge", "description": None})
+    assert api.session.patch.call_args.kwargs["json"] == {"name": "edge"}
 
 
-@pytest.mark.parametrize("method", ["get", "post", "patch", "delete"])
-def test_request_carries_default_timeout(method):
-    api = InfisicalRequests(host="https://example.com")
+def test_patch_sends_null_for_nullable_keys(api, json_response):
+    api.session.patch.return_value = json_response({})
+    api.patch(path="/api/v1/example", model=dict, json={"label": None, "description": None}, nullable_keys=["label"])
+    assert api.session.patch.call_args.kwargs["json"] == {"label": None}
 
-    assert request_kwargs(api, method)["timeout"] == 30
+
+def test_patch_keeps_false_zero_and_empty_string(api, json_response):
+    api.session.patch.return_value = json_response({})
+    api.patch(path="/api/v1/example", model=dict, json={"enabled": False, "count": 0, "note": ""})
+    assert api.session.patch.call_args.kwargs["json"] == {"enabled": False, "count": 0, "note": ""}
 
 
-def test_request_carries_configured_timeout():
-    api = InfisicalRequests(host="https://example.com", timeout=5)
+def test_put_leaves_out_none_values(api, json_response):
+    api.session.put.return_value = json_response({})
+    api.put(path="/api/v1/example", model=dict, json={"scope": "selected", "groupIds": None})
+    assert api.session.put.call_args.kwargs["json"] == {"scope": "selected"}
 
-    assert request_kwargs(api, "get")["timeout"] == 5
+
+def test_put_retries_a_read_timeout(api, json_response):
+    api.session.put.side_effect = [requests.exceptions.ReadTimeout(), json_response({"ok": True})]
+    assert api.put(path="/api/v1/example", model=dict).data == {"ok": True}
+    assert api.session.put.call_count == 2
+
+
+def test_post_retries_a_read_timeout(api, json_response):
+    api.session.post.side_effect = [requests.exceptions.ReadTimeout(), json_response({"ok": True})]
+    assert api.post(path="/api/v1/example", model=dict).data == {"ok": True}
+    assert api.session.post.call_count == 2
+
+
+def test_post_once_retries_when_the_connection_never_opened(api, json_response):
+    api.session.post.side_effect = [requests.exceptions.ConnectTimeout(), json_response({"ok": True})]
+    assert api.post_once(path="/api/v1/example", model=dict).data == {"ok": True}
+    assert api.session.post.call_count == 2
+
+
+@pytest.mark.parametrize("error", [
+    requests.exceptions.ReadTimeout,
+    requests.exceptions.ConnectionError,
+    requests.exceptions.ChunkedEncodingError,
+])
+def test_post_once_does_not_retry_once_the_request_may_have_reached_the_server(api, error):
+    api.session.post.side_effect = error()
+    with pytest.raises(error):
+        api.post_once(path="/api/v1/example", model=dict)
+    assert api.session.post.call_count == 1
+
+
+@pytest.mark.parametrize("method", ["get", "post", "post_once", "patch", "put", "delete", "delete_once"])
+def test_request_carries_default_timeout(api, json_response, method):
+    send = getattr(api.session, method.replace("_once", ""))
+    send.return_value = json_response({})
+    getattr(api, method)(path="/api/v1/example", model=dict)
+    assert send.call_args.kwargs["timeout"] == 30
+
+
+def test_request_carries_configured_timeout(json_response):
+    api = InfisicalRequests(host="https://infisical.example.com", timeout=5)
+    api.session = mock.Mock()
+    api.session.get.return_value = json_response({})
+    api.get(path="/api/v1/example", model=dict)
+    assert api.session.get.call_args.kwargs["timeout"] == 5
 
 
 def test_client_timeout_reaches_the_request():
-    with InfisicalSDKClient(host="https://example.com", timeout=5) as client:
-        assert request_kwargs(client.api, "get")["timeout"] == 5
-
-
-def send_attempts(api, method, error):
-    with mock.patch.object(api.session, method, side_effect=error) as send:
-        with mock.patch("infisical_sdk.infisical_requests.time.sleep"):
-            with pytest.raises(type(error)):
-                getattr(api, method)("/path", dict)
-    return send.call_count
-
-
-@pytest.mark.parametrize("method", ["post", "patch", "delete"])
-def test_read_timeout_is_not_replayed_on_writes(method):
-    api = InfisicalRequests(host="https://example.com")
-
-    assert send_attempts(api, method, requests.exceptions.ReadTimeout()) == 1
-
-
-def test_read_timeout_is_retried_on_reads():
-    api = InfisicalRequests(host="https://example.com")
-
-    assert send_attempts(api, "get", requests.exceptions.ReadTimeout()) > 1
-
-
-@pytest.mark.parametrize("method", ["post", "patch", "delete"])
-def test_connect_timeout_is_still_retried_on_writes(method):
-    api = InfisicalRequests(host="https://example.com")
-
-    assert send_attempts(api, method, requests.exceptions.ConnectTimeout()) > 1
+    with InfisicalSDKClient(host="https://infisical.example.com", timeout=5) as client:
+        assert client.api.timeout == 5

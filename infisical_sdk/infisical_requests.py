@@ -22,11 +22,9 @@ NETWORK_ERRORS = [
     ConnectionAbortedError,
 ]
 
-# A read timeout means the request reached the server and the response did not
-# arrive in time, so the server may already have applied it. Replaying that is
-# only safe for reads.
-IDEMPOTENT_NETWORK_ERRORS = [
-    error for error in NETWORK_ERRORS if error is not requests.exceptions.ReadTimeout
+# Raised before a request reaches the server, so retrying can't make the server handle it twice
+CONNECT_ERRORS = [
+    requests.exceptions.ConnectTimeout,
 ]
 
 def join_url(base: str, path: str) -> str:
@@ -182,14 +180,13 @@ class InfisicalRequests:
             headers=dict(response.headers)
         )
 
-    @with_retry(
-        max_retries=4, base_delay=1.0, network_errors=IDEMPOTENT_NETWORK_ERRORS
-    )
+    @with_retry(max_retries=4, base_delay=1.0)
     def post(
             self,
             path: str,
             model: Type[T],
-            json: Optional[Dict[str, Any]] = None
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
         """Make a POST request with JSON data"""
@@ -198,7 +195,7 @@ class InfisicalRequests:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.post(self._build_url(path), json=json, timeout=self.timeout)
+        response = self.session.post(self._build_url(path), json=json, params=params, timeout=self.timeout)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
@@ -209,21 +206,47 @@ class InfisicalRequests:
             headers=dict(response.headers)
         )
 
-    @with_retry(
-        max_retries=4, base_delay=1.0, network_errors=IDEMPOTENT_NETWORK_ERRORS
-    )
-    def patch(
+    @with_retry(max_retries=4, base_delay=1.0, network_errors=CONNECT_ERRORS)
+    def post_once(
             self,
             path: str,
             model: Type[T],
-            json: Optional[Dict[str, Any]] = None
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
-        """Make a PATCH request with JSON data"""
+        """Make a POST request that must not run twice, such as one that creates something.
+        It's only retried if the connection never opened, so a lost response can't run it again."""
 
         if json is not None:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
+
+        response = self.session.post(self._build_url(path), json=json, params=params, timeout=self.timeout)
+        data = self._handle_response(response)
+
+        parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
+
+        return APIResponse(
+            data=parsed_data,
+            status_code=response.status_code,
+            headers=dict(response.headers)
+        )
+
+    @with_retry(max_retries=4, base_delay=1.0)
+    def patch(
+            self,
+            path: str,
+            model: Type[T],
+            json: Optional[Dict[str, Any]] = None,
+            nullable_keys: Optional[List[str]] = None
+          ) -> APIResponse[T]:
+
+        """Make a PATCH request with JSON data. Keys in nullable_keys are sent even when None, to clear a value."""
+
+        if json is not None:
+            # Filter out None values
+            json = {k: v for k, v in json.items() if v is not None or k in (nullable_keys or [])}
 
         response = self.session.patch(self._build_url(path), json=json, timeout=self.timeout)
         data = self._handle_response(response)
@@ -236,23 +259,74 @@ class InfisicalRequests:
             headers=dict(response.headers)
         )
 
-    @with_retry(
-        max_retries=4, base_delay=1.0, network_errors=IDEMPOTENT_NETWORK_ERRORS
-    )
-    def delete(
+    @with_retry(max_retries=4, base_delay=1.0)
+    def put(
             self,
             path: str,
             model: Type[T],
-            json: Optional[Dict[str, Any]] = None
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
           ) -> APIResponse[T]:
 
-        """Make a PATCH request with JSON data"""
+        """Make a PUT request with JSON data. A PUT replaces the whole resource, so it's safe to retry."""
 
         if json is not None:
             # Filter out None values
             json = {k: v for k, v in json.items() if v is not None}
 
-        response = self.session.delete(self._build_url(path), json=json, timeout=self.timeout)
+        response = self.session.put(self._build_url(path), json=json, params=params, timeout=self.timeout)
+        data = self._handle_response(response)
+
+        parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
+
+        return APIResponse(
+            data=parsed_data,
+            status_code=response.status_code,
+            headers=dict(response.headers)
+        )
+
+    @with_retry(max_retries=4, base_delay=1.0)
+    def delete(
+            self,
+            path: str,
+            model: Type[T],
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
+          ) -> APIResponse[T]:
+
+        """Make a DELETE request with JSON data"""
+
+        if json is not None:
+            # Filter out None values
+            json = {k: v for k, v in json.items() if v is not None}
+
+        response = self.session.delete(self._build_url(path), json=json, params=params, timeout=self.timeout)
+        data = self._handle_response(response)
+
+        parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
+
+        return APIResponse(
+            data=parsed_data,
+            status_code=response.status_code,
+            headers=dict(response.headers)
+        )
+
+    @with_retry(max_retries=4, base_delay=1.0, network_errors=CONNECT_ERRORS)
+    def delete_once(
+            self,
+            path: str,
+            model: Type[T],
+            json: Optional[Dict[str, Any]] = None,
+            params: Optional[Dict[str, Any]] = None
+          ) -> APIResponse[T]:
+
+        """Make a DELETE request that must not run twice. It's retried only in the same cases as post_once."""
+
+        if json is not None:
+            # Filter out None values
+            json = {k: v for k, v in json.items() if v is not None}
+
+        response = self.session.delete(self._build_url(path), json=json, params=params, timeout=self.timeout)
         data = self._handle_response(response)
 
         parsed_data = model.from_dict(data) if hasattr(model, 'from_dict') else data
