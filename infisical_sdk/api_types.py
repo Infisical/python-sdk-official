@@ -599,6 +599,7 @@ class AgentVaultSession(BaseModel):
     accessBundle: Optional[AgentVaultSessionAccessBundle] = None
     onBehalfOf: Optional[AgentVaultSessionActor] = None
     services: Optional[List[AgentVaultInlineService]] = None
+    metadata: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'AgentVaultSession':
@@ -612,6 +613,7 @@ class AgentVaultSession(BaseModel):
             session_data['accessBundle'] = AgentVaultSessionAccessBundle.from_dict(data['accessBundle'])
         if data.get('services') is not None:
             session_data['services'] = [AgentVaultInlineService.from_dict(service) for service in data['services']]
+        session_data['metadata'] = data.get('metadata') or {}
 
         return super().from_dict(session_data)
 
@@ -626,6 +628,7 @@ class CreatedAgentVaultSession(BaseModel):
     expiresAt: Optional[str] = None
     accessBundle: Optional[AgentVaultSessionAccessBundle] = None
     services: List[AgentVaultInlineService] = field(default_factory=list)
+    metadata: Dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: Dict) -> 'CreatedAgentVaultSession':
@@ -636,6 +639,7 @@ class CreatedAgentVaultSession(BaseModel):
         session_data['services'] = [
             AgentVaultInlineService.from_dict(service) for service in data.get('services', [])
         ]
+        session_data['metadata'] = data.get('metadata') or {}
 
         return super().from_dict(session_data)
 

@@ -110,10 +110,45 @@ def test_proxies_update_sends_an_empty_description_to_remove_it(api, agent_vault
 
 
 @pytest.mark.parametrize("label", ["nightly deploy", None])
-def test_sessions_update_always_sends_the_label(api, agent_vault, json_response, label):
+def test_sessions_update_sends_a_label_it_is_given(api, agent_vault, json_response, label):
     api.session.patch.return_value = json_response({"session": dict(SESSION, label=label)})
     assert agent_vault.sessions.update(SESSION["id"], label).label == label
     assert api.session.patch.call_args.kwargs["json"] == {"label": label}
+    agent_vault.sessions.update(SESSION["id"], label=label)
+    assert api.session.patch.call_args.kwargs["json"] == {"label": label}
+
+
+@pytest.mark.parametrize("metadata", [{"runId": "8812"}, {}], ids=["set", "clear"])
+def test_sessions_update_sends_only_metadata_and_leaves_the_label(api, agent_vault, json_response, metadata):
+    api.session.patch.return_value = json_response({"session": dict(SESSION, metadata=metadata)})
+    assert agent_vault.sessions.update(SESSION["id"], metadata=metadata).metadata == metadata
+    assert api.session.patch.call_args.kwargs["json"] == {"metadata": metadata}
+
+
+def test_sessions_update_sends_a_label_and_metadata_together(api, agent_vault, json_response):
+    api.session.patch.return_value = json_response({"session": SESSION})
+    agent_vault.sessions.update(SESSION["id"], None, metadata={"runId": "8812"})
+    assert api.session.patch.call_args.kwargs["json"] == {"label": None, "metadata": {"runId": "8812"}}
+
+
+def test_sessions_create_sends_metadata_and_reads_it_back(api, agent_vault, json_response):
+    metadata = {"runId": "8812", "team": "platform"}
+    api.session.post.return_value = json_response({"session": dict(SESSION, token="token", metadata=metadata)})
+    session = agent_vault.sessions.create(access_bundle="release", metadata=metadata, project_id=PROJECT_ID)
+    assert api.session.post.call_args.kwargs["json"] == {"accessBundle": "release", "metadata": metadata, "projectId": PROJECT_ID}
+    assert session.metadata == metadata
+
+
+def test_sessions_get_reads_the_metadata(api, agent_vault, json_response):
+    api.session.get.return_value = json_response({"session": dict(SESSION, metadata={"runId": "8812"})})
+    assert agent_vault.sessions.get(SESSION["id"]).metadata["runId"] == "8812"
+
+
+def test_sessions_without_metadata_read_it_as_empty(api, agent_vault, json_response):
+    api.session.get.return_value = json_response({"session": SESSION})
+    assert agent_vault.sessions.get(SESSION["id"]).metadata == {}
+    api.session.post.return_value = json_response({"session": dict(SESSION, token="token")})
+    assert agent_vault.sessions.create(access_bundle="release", project_id=PROJECT_ID).metadata == {}
 
 
 @pytest.mark.parametrize("create", [
@@ -215,6 +250,26 @@ def test_sessions_get_reads_the_user_a_session_acts_for(api, agent_vault, json_r
     api.session.get.return_value = json_response({"session": dict(SESSION, onBehalfOf=on_behalf_of)})
     expected = AgentVaultSessionActor(**on_behalf_of) if on_behalf_of else None
     assert agent_vault.sessions.get(SESSION["id"]).onBehalfOf == expected
+
+
+def test_sessions_list_sends_each_metadata_pair_as_its_own_metadata_parameter(api, agent_vault, json_response):
+    api.session.get.return_value = json_response({"sessions": [], "totalCount": 0})
+    agent_vault.sessions.list(metadata={"runId": "8812", "env": "prod"}, project_id=PROJECT_ID)
+    call = api.session.get.call_args
+    prepared = requests.Request("GET", call.args[0], params=call.kwargs["params"]).prepare()
+    assert prepared.url == (
+        "https://infisical.example.com/api/v1/agent-vault/sessions"
+        f"?scope=mine&metadata=runId%3D8812&metadata=env%3Dprod&limit=20&offset=0&projectId={PROJECT_ID}"
+    )
+
+
+@pytest.mark.parametrize("metadata", [None, {}])
+def test_sessions_list_leaves_out_an_empty_metadata_filter(api, agent_vault, json_response, metadata):
+    api.session.get.return_value = json_response({"sessions": [], "totalCount": 0})
+    agent_vault.sessions.list(metadata=metadata, project_id=PROJECT_ID)
+    call = api.session.get.call_args
+    prepared = requests.Request("GET", call.args[0], params=call.kwargs["params"]).prepare()
+    assert "metadata" not in prepared.url
 
 
 def test_access_bundles_list_sends_booleans_the_way_the_api_reads_them(api, agent_vault, json_response):
