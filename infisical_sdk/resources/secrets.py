@@ -86,14 +86,11 @@ class V3RawSecrets:
         if project_slug is None and project_id is None:
             raise ValueError("project_slug or project_id must be provided")
 
-        cache_params = {
-           "project_id": project_id,
-           "environment_slug": environment_slug,
-           "secret_path": secret_path,
-           "secret_name": secret_name,
-        }
-
-        cache_key = self.cache.compute_cache_key(CACHE_KEY_SINGLE_SECRET, **cache_params)
+        # Key on every request parameter, like list_secrets: secrets of other
+        # projects (by slug), other versions or masked values must not be shared.
+        cache_key = self.cache.compute_cache_key(
+            CACHE_KEY_SINGLE_SECRET, secret_name=secret_name, **params
+        )
 
         if self.cache.enabled:
           cached_response = self.cache.get(cache_key)
@@ -154,17 +151,9 @@ class V3RawSecrets:
 
 
         if self.cache.enabled:
-          cache_params = {
-            "project_id": project_id,
-            "environment_slug": environment_slug,
-            "secret_path": secret_path,
-            "secret_name": secret_name,
-          }
-
-          cache_key = self.cache.compute_cache_key(CACHE_KEY_SINGLE_SECRET, **cache_params)
-          self.cache.set(cache_key, result.data.secret)
-
-          # Invalidates all list secret cache
+          # The secret may be cached under any project reference (id or slug) and
+          # read options, so drop every cached single secret and list
+          self.cache.invalidate_operation(CACHE_KEY_SINGLE_SECRET)
           self.cache.invalidate_operation(CACHE_KEY_LIST_SECRETS)
 
         return result.data.secret
@@ -212,18 +201,10 @@ class V3RawSecrets:
         )
 
         if self.cache.enabled:
-           cache_params = {
-            "project_id": project_id,
-            "environment_slug": environment_slug,
-            "secret_path": secret_path,
-            "secret_name": current_secret_name,
-           }
-
-           cache_key = self.cache.compute_cache_key(CACHE_KEY_SINGLE_SECRET, **cache_params)
-           self.cache.unset(cache_key)
-
-           # Invalidates all list secret cache
-           self.cache.invalidate_operation(CACHE_KEY_LIST_SECRETS)
+          # The secret may be cached under any project reference (id or slug) and
+          # read options, so drop every cached single secret and list
+          self.cache.invalidate_operation(CACHE_KEY_SINGLE_SECRET)
+          self.cache.invalidate_operation(CACHE_KEY_LIST_SECRETS)
 
         return result.data.secret
 
@@ -253,17 +234,9 @@ class V3RawSecrets:
         )
 
         if self.cache.enabled:
-          cache_params = {
-            "project_id": project_id,
-            "environment_slug": environment_slug,
-            "secret_path": secret_path,
-            "secret_name": secret_name,
-          }
-
-          cache_key = self.cache.compute_cache_key(CACHE_KEY_SINGLE_SECRET, **cache_params)
-          self.cache.unset(cache_key)
-
-          # Invalidates all list secret cache
+          # The secret may be cached under any project reference (id or slug) and
+          # read options, so drop every cached single secret and list
+          self.cache.invalidate_operation(CACHE_KEY_SINGLE_SECRET)
           self.cache.invalidate_operation(CACHE_KEY_LIST_SECRETS)
 
         return result.data.secret
