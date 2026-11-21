@@ -1,5 +1,10 @@
+from unittest import mock
+
 import pytest
 import requests
+
+from infisical_sdk import InfisicalSDKClient
+from infisical_sdk.infisical_requests import InfisicalRequests
 
 
 def test_patch_leaves_out_none_values(api, json_response):
@@ -54,3 +59,24 @@ def test_post_once_does_not_retry_once_the_request_may_have_reached_the_server(a
     with pytest.raises(error):
         api.post_once(path="/api/v1/example", model=dict)
     assert api.session.post.call_count == 1
+
+
+@pytest.mark.parametrize("method", ["get", "post", "post_once", "patch", "put", "delete", "delete_once"])
+def test_request_carries_default_timeout(api, json_response, method):
+    send = getattr(api.session, method.replace("_once", ""))
+    send.return_value = json_response({})
+    getattr(api, method)(path="/api/v1/example", model=dict)
+    assert send.call_args.kwargs["timeout"] == 30
+
+
+def test_request_carries_configured_timeout(json_response):
+    api = InfisicalRequests(host="https://infisical.example.com", timeout=5)
+    api.session = mock.Mock()
+    api.session.get.return_value = json_response({})
+    api.get(path="/api/v1/example", model=dict)
+    assert api.session.get.call_args.kwargs["timeout"] == 5
+
+
+def test_client_timeout_reaches_the_request():
+    with InfisicalSDKClient(host="https://infisical.example.com", timeout=5) as client:
+        assert client.api.timeout == 5
