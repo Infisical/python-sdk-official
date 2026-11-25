@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, Optional, TypeVar, Type, Callable, List
+from typing import Any, Dict, Generic, Optional, TypeVar, Type, Callable, List, Tuple
 import socket
 import requests
 import functools
@@ -26,6 +26,10 @@ NETWORK_ERRORS = [
 CONNECT_ERRORS = [
     requests.exceptions.ConnectTimeout,
 ]
+
+# A GET doesn't change anything on the server, so it can also be sent again after the gateway errors a deploy or an
+# overloaded instance returns. Other methods aren't retried on a status, since the server may have acted on them.
+GET_RETRY_STATUSES = (502, 503, 504)
 
 def join_url(base: str, path: str) -> str:
     """
@@ -75,7 +79,8 @@ class APIResponse(Generic[T]):
 def with_retry(
     max_retries: int = 3, 
     base_delay: float = 1.0, 
-    network_errors: Optional[List[Type[Exception]]] = None
+    network_errors: Optional[List[Type[Exception]]] = None,
+    retry_statuses: Tuple[int, ...] = ()
 ) -> Callable:
     """
     Decorator to add retry logic with exponential backoff to requests methods.
@@ -91,7 +96,13 @@ def with_retry(
             while True:
                 try:
                     return func(*args, **kwargs)
-                except tuple(network_errors) as error:
+                except Exception as error:
+                    is_retryable = isinstance(error, tuple(network_errors)) or (
+                        isinstance(error, APIError) and error.status_code in retry_statuses
+                    )
+                    if not is_retryable:
+                        raise
+
                     retry_count += 1
                     if retry_count > max_retries:
                         raise
@@ -152,7 +163,7 @@ class InfisicalRequests:
         except ValueError:
             raise InfisicalError("Invalid JSON response")
 
-    @with_retry(max_retries=4, base_delay=1.0)
+    @with_retry(max_retries=4, base_delay=1.0, retry_statuses=GET_RETRY_STATUSES)
     def get(
             self,
             path: str,
